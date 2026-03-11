@@ -1,17 +1,19 @@
-import express from 'express';
-import cookieParser from 'cookie-parser';
+import express from "express";
+import cookieParser from "cookie-parser";
 
-import config from './config/config.js';
+import config from "./config/config.js";
+import authRouter from "./routes/auth.routes.js";
 
 const app = express();
+
+const { port, host } = config;
 
 app.use(cookieParser());
 app.use(express.json());
 
+//register
+app.use("/api/auth", authRouter);
 
-
-app.listen(config.port, () => {
-  console.log(`Server running at port ${config.port}...`);
+app.listen(Number(port), host, () => {
+  console.log(`Server running at http://${host}:${port}...`);
 });
-
-

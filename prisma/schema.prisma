@@ -15,27 +15,47 @@ datasource db {
 
 // User Model for Authentication & Profile
 model User {
-  id            String    @id @default(uuid()) // Using UUID for better security
-  email         String    @unique
-  password      String    // Will store Hashed passwords
-  fullName      String
-  phoneNumber   String?   @unique
-  role          Role      @default(STUDENT)    // Role-based access control
-  isVerified    Boolean   @default(false)      // For email/OTP verification
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id          String   @id @default(uuid()) // Using UUID for better security
+  email       String   @unique
+  password_hash    String // Will store Hashed passwords
+  fullName    String
+  phoneNumber String?  @unique
+  role        Role     @default(STUDENT) // Role-based access control
+  isVerified  Boolean  @default(false) // For email/OTP verification
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Profile relation
-    profile       Profile?
+  profile  Profile?
+  sessions DeviceSession[]
 }
 
 // Separate Profile model for bio, avatars, etc.
 model Profile {
-  id       String  @id @default(uuid())
-  bio      String?
-  avatar   String?
-  userId   String  @unique
-  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String  @id @default(uuid())
+  bio    String?
+  avatar String?
+  userId String  @unique
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DeviceSession {
+  id String @id @default(uuid())
+
+  // Information about the connection
+  ip_address  String  @db.VarChar(45) // Supports IPv4 and IPv6
+  user_agent  String  @db.Text // Stores browser/OS details
+  device_type String? // e.g., "Mobile", "Desktop", "Tablet"
+
+  // Timing
+  last_active DateTime @default(now())
+  created_at  DateTime @default(now())
+
+  // Relationship to User
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId]) // Improves speed 
 }
 
 // Enum for Roles
