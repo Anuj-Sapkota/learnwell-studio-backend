@@ -27,10 +27,7 @@ export const register = async ({
   userAgent
 }: RegisterInputProps): Promise<{ user: User; accessToken: string; refreshToken: string }> => {
   
-  // 1. Validation Logic
-  if (!fullName || !email || !password) {
-    throw new ServiceError("Missing required fields", 400);
-  }
+  
 
   const userExists = await prisma.user.findUnique({ where: { email } });
   if (userExists) {
