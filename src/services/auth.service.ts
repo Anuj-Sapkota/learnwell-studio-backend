@@ -3,7 +3,7 @@ import {
   MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
 } from "../constants/auth.constants.js";
-import { hashPassword } from "../utils/password.util.js";
+import { hashPassword, verifyPassword } from "../utils/password.util.js";
 import { prisma } from "../lib/prisma.js";
 import { generateTokens } from "../utils/tokens.utils.js";
 import type { User } from "../generated/prisma/client.js";
@@ -28,17 +28,10 @@ export const register = async ({
 }: RegisterInputProps): Promise<{ user: User; accessToken: string; refreshToken: string }> => {
   
   
-
+// if user exists
   const userExists = await prisma.user.findUnique({ where: { email } });
   if (userExists) {
     throw new ServiceError("User already exists!", 409);
-  }
-
-  if (password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
-    throw new ServiceError(
-      `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters`,
-      400
-    );
   }
 
   // 2. Database Transaction
@@ -74,4 +67,39 @@ export const register = async ({
 
     return { user: newUser, accessToken, refreshToken };
   });
+};
+
+
+/**
+ * Logins a user
+ */
+
+export const login = async ({ email, password, ip, userAgent }: any) => {
+  // 1. Find the user
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    throw new ServiceError("Invalid email or password", 401);
+  }
+
+  // 2. Check Password
+  const isPasswordValid = await verifyPassword(password, user.password_hash);
+  if (!isPasswordValid) {
+    throw new ServiceError("Invalid email or password", 401);
+  }
+
+  // 3. Generate Tokens
+  const { accessToken, refreshToken } = generateTokens(user.id, user.role);
+
+  // 4. Create Device Session (for tracking/revocation)
+  await prisma.deviceSession.create({
+    data: {
+      userId: user.id,
+      token: refreshToken,
+      ipAddress: ip,
+      userAgent: userAgent,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 Days
+    },
+  });
+
+  return { user, accessToken, refreshToken };
 };

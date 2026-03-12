@@ -1,9 +1,9 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
-import { register } from "../services/auth.service.js";
+import { login, register } from "../services/auth.service.js";
 import { setRefreshCookie } from "../utils/tokens.utils.js";
 import { formatAuthResponse } from "../helpers/format-auth-response.helper.js";
-import { registerSchema } from "../utils/auth.validator.js";
+import { loginSchema, registerSchema } from "../utils/auth.validator.js";
 
 export const registerUser = async (
   req: Request,
@@ -57,3 +57,34 @@ export const registerUser = async (
     });
   }
 };
+
+//Login controller
+export const loginUser = async (req: Request, res: Response) => {
+  try {
+    const validatedData = loginSchema.parse(req.body);
+    const ip = req.ip || "0.0.0.0";
+    const userAgent = req.get("User-Agent") || "unknown";
+
+    const { user, accessToken, refreshToken } = await login({
+      ...validatedData,
+      ip,
+      userAgent,
+    });
+
+    setRefreshCookie(res, refreshToken);
+    return res.status(200).json(formatAuthResponse(user, accessToken));
+
+  } catch (err: any) {
+    if (err instanceof z.ZodError) {
+      const formattedErrors: Record<string, string> = {};
+      err.issues.forEach((issue) => {
+        const key = issue.path[0];
+        if (typeof key === "string") formattedErrors[key] = issue.message;
+      });
+      return res.status(400).json({ success: false, message: "Validation failed", errors: formattedErrors });
+    }
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+};
+
+

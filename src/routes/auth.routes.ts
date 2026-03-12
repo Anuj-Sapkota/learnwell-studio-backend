@@ -1,5 +1,5 @@
-import express from 'express';
-import { registerUser } from '../controllers/auth.controller.js';
+import express from "express";
+import { loginUser, registerUser } from "../controllers/auth.controller.js";
 
 const route = express.Router();
 
@@ -14,5 +14,15 @@ const route = express.Router();
  */
 
 route.post("/register", registerUser);
+
+/**
+ * @desc    Authenticate user and create session
+ * @route   POST /api/auth/login
+ * @access  Public
+ * @body    { string } email - User's registered email
+ * @body    { string } password - User's password
+ * @returns { object } 200 - User object and Access Token
+ */
+route.post("/login", loginUser);
 
 export default route;
