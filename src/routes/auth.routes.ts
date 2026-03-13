@@ -1,5 +1,5 @@
 import express from "express";
-import { loginUser, registerUser } from "../controllers/auth.controller.js";
+import { loginUser, logoutUser, refreshAccessToken, registerUser } from "../controllers/auth.controller.js";
 
 const route = express.Router();
 
@@ -24,5 +24,21 @@ route.post("/register", registerUser);
  * @returns { object } 200 - User object and Access Token
  */
 route.post("/login", loginUser);
+
+/**
+ * @desc    Logout user and invalidate session
+ * @route   POST /api/auth/logout
+ * @access  Private (Requires Refresh Token)
+ * @returns { object } 200 - Success message
+ */
+route.post("/logout", logoutUser);
+
+/**
+ * @desc    Get new Access Token using Refresh Token
+ * @route   POST /api/auth/refresh
+ * @access  Public (Uses HttpOnly Cookie)
+ * @returns { object } 200 - New Access Token
+ */
+route.post("/refresh", refreshAccessToken);
 
 export default route;
