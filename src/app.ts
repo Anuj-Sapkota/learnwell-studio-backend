@@ -3,6 +3,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import config from "./config/config.js";
 import authRouter from "./routes/auth.routes.js";
+import courseRouter from "./routes/courses.routes.js"
 
 const app = express();
 
@@ -22,8 +23,11 @@ app.use(
 
 app.use(express.json());
 
-//register
+//Auth
 app.use("/api/auth", authRouter);
+
+// Courses
+app.use("/api/course", courseRouter);
 
 app.listen(Number(port), host, () => {
   console.log(`Server running at http://${host}:${port}...`);
