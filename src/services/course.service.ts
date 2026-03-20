@@ -18,6 +18,7 @@ export const createCourseService = async (data: {
   });
 };
 
+
 export const getAllCoursesService = async () => {
   return await prisma.course.findMany({
     include: {
@@ -28,6 +29,7 @@ export const getAllCoursesService = async () => {
   });
 };
 
+//Creates the section for the course
 export const createSectionService = async (courseId: string, title: string) => {
   return await prisma.section.create({
     data: {
