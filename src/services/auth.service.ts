@@ -14,6 +14,7 @@ interface RegisterInputProps {
   password: string;
   ip: string;
   userAgent: string;
+  deviceType: string;
 }
 
 /**
@@ -25,6 +26,7 @@ export const register = async ({
   password,
   ip,
   userAgent,
+  deviceType,
 }: RegisterInputProps): Promise<{
   user: User;
   accessToken: string;
@@ -65,6 +67,7 @@ export const register = async ({
         userId: newUser.id,
         token: refreshToken, // Storing the refresh token for revocation support
         ipAddress: ip,
+        deviceType: deviceType || "unknown",
         userAgent: userAgent,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 Days
       },
@@ -78,7 +81,13 @@ export const register = async ({
  * Logins a user
  */
 
-export const login = async ({ email, password, ip, userAgent }: any) => {
+export const login = async ({
+  email,
+  password,
+  ip,
+  userAgent,
+  deviceType,
+}: any) => {
   // 1. Find the user
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
@@ -100,6 +109,7 @@ export const login = async ({ email, password, ip, userAgent }: any) => {
       userId: user.id,
       token: refreshToken,
       ipAddress: ip,
+      deviceType: deviceType || "unknown",
       userAgent: userAgent,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 Days
     },
@@ -139,7 +149,7 @@ export const refreshSession = async (refreshToken: string) => {
 
   // 2. Check if session is expired
   if (new Date() > session.expiresAt) {
-    // delete expired session from DB 
+    // delete expired session from DB
     await prisma.deviceSession.delete({ where: { id: session.id } });
     throw new ServiceError("Session expired, please login again", 401);
   }

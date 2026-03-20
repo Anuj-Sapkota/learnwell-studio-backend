@@ -18,6 +18,7 @@ export const registerUser = async (
     // 2. Extract network info
     const ip = req.ip || req.socket?.remoteAddress || "0.0.0.0";
     const userAgent = req.get("User-Agent") || "unknown";
+    const { deviceType } = req.body;
 
     // 3. Call the service (Pass validatedData)
     // We destructure tokens directly from the service result
@@ -25,6 +26,7 @@ export const registerUser = async (
       ...validatedData,
       ip,
       userAgent,
+      deviceType,
     });
 
     // 4. Security layers (Use the refreshToken from the service/database)
@@ -65,12 +67,14 @@ export const loginUser = async (req: Request, res: Response) => {
   try {
     const validatedData = loginSchema.parse(req.body);
     const ip = req.ip || "0.0.0.0";
+    const { deviceType } = req.body;
     const userAgent = req.get("User-Agent") || "unknown";
 
     const { user, accessToken, refreshToken } = await login({
       ...validatedData,
       ip,
       userAgent,
+      deviceType,
     });
 
     setRefreshCookie(res, refreshToken);
@@ -82,13 +86,11 @@ export const loginUser = async (req: Request, res: Response) => {
         const key = issue.path[0];
         if (typeof key === "string") formattedErrors[key] = issue.message;
       });
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Validation failed",
-          errors: formattedErrors,
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: formattedErrors,
+      });
     }
     return res
       .status(err.status || 500)
