@@ -17,7 +17,7 @@ datasource db {
 model User {
   id            String   @id @default(uuid()) // Using UUID for better security
   email         String   @unique
-  password_hash  String? // Will store Hashed passwords - Optional for google users
+  password_hash String? // Will store Hashed passwords - Optional for google users
   fullName      String
   phoneNumber   String?  @unique
   role          Role     @default(STUDENT) // Role-based access control
@@ -27,6 +27,7 @@ model User {
 
   // Profile relation
   profile  Profile?
+  courses  Course[]
   sessions DeviceSession[]
 }
 
@@ -64,4 +65,42 @@ enum Role {
   STUDENT
   INSTRUCTOR
   ADMIN
+}
+
+model Course {
+  id          String  @id @default(uuid())
+  title       String
+  description String? @db.Text
+  thumbnail   String? // URL to image
+  price       Float   @default(0)
+  category    String?
+  level       String  @default("BEGINNER") // BEGINNER, INTERMEDIATE, ADVANCED
+  duration    String? // e.g., "10.5 hours"
+
+  instructorId String
+  instructor   User   @relation(fields: [instructorId], references: [id])
+
+  sections  Section[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Section {
+  id       String   @id @default(uuid())
+  title    String
+  order    Int      @default(0) // To keep sections in sequence
+  courseId String
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons  Lesson[]
+}
+
+model Lesson {
+  id        String  @id @default(uuid())
+  title     String
+  content   String? @db.Text
+  videoUrl  String?
+  pdfUrl    String?
+  order     Int     @default(0)
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 }
