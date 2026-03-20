@@ -18,7 +18,6 @@ export const createCourseService = async (data: {
   });
 };
 
-
 export const getAllCoursesService = async () => {
   return await prisma.course.findMany({
     include: {
@@ -75,6 +74,23 @@ export const getCourseDetailService = async (courseId: string) => {
           },
         },
       },
+    },
+  });
+};
+
+export const getInstructorCoursesService = async (instructorId: string) => {
+  return await prisma.course.findMany({
+    where: {
+      instructorId: instructorId,
+    },
+    include: {
+      _count: {
+        select: { sections: true }, // Shows how many modules are in the course
+      },
+      createdAt: true,
+    },
+    orderBy: {
+      createdAt: "desc",
     },
   });
 };

@@ -5,6 +5,7 @@ import {
   createCourse,
   getCourseDetail,
   getCourses,
+  getMyCreatedCourses,
 } from "../controllers/course.controller.js";
 import { protect, authorize } from "../middleware/auth.middleware.js";
 
@@ -35,4 +36,10 @@ router.post(
 // Get full course content (for students to watch)
 router.get("/:courseId/full", protect, getCourseDetail);
 
+router.get(
+  "/instructor/my-courses",
+  protect,
+  authorize("INSTRUCTOR", "ADMIN"),
+  getMyCreatedCourses,
+);
 export default router;

@@ -28,6 +28,7 @@ model User {
   // Profile relation
   profile  Profile?
   courses  Course[]
+  enrollments Enrollment[]
   sessions DeviceSession[]
 }
 
@@ -81,6 +82,7 @@ model Course {
   instructor   User   @relation(fields: [instructorId], references: [id])
 
   sections  Section[]
+  enrollments Enrollment[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
@@ -103,4 +105,17 @@ model Lesson {
   order     Int     @default(0)
   sectionId String
   section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+}
+
+// Enrollments
+model Enrollment {
+  id        String   @id @default(uuid())
+  studentId String
+  courseId  String
+  createdAt DateTime @default(now())
+
+  student   User     @relation(fields: [studentId], references: [id])
+  course    Course   @relation(fields: [courseId], references: [id])
+
+  @@unique([studentId, courseId]) // Prevents double enrollment
 }

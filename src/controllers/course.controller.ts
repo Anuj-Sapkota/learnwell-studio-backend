@@ -82,3 +82,23 @@ export const getCourseDetail = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const getMyCreatedCourses = async (req: Request, res: Response) => {
+  try {
+    // req.user comes from your 'protect' middleware
+    const instructorId = (req as any).user.userId;
+
+    const courses =
+      await courseService.getInstructorCoursesService(instructorId);
+
+    res.status(200).json({
+      success: true,
+      data: courses,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
