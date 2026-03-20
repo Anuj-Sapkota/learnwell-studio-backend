@@ -1,5 +1,11 @@
 import express from "express";
-import { loginUser, logoutUser, refreshAccessToken, registerUser } from "../controllers/auth.controller.js";
+import {
+  googleLogin,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  registerUser,
+} from "../controllers/auth.controller.js";
 
 const route = express.Router();
 
@@ -40,5 +46,13 @@ route.post("/logout", logoutUser);
  * @returns { object } 200 - New Access Token
  */
 route.post("/refresh", refreshAccessToken);
+
+/**
+ * @desc Logins with google and if account is new creates a new account
+ * @route POST /api/auth/google
+ * @access Public access
+ * @returns { object } 200 - Success Message
+ */
+route.post("/google", googleLogin);
 
 export default route;

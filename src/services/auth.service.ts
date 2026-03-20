@@ -7,6 +7,9 @@ import { hashPassword, verifyPassword } from "../utils/password.util.js";
 import { prisma } from "../lib/prisma.js";
 import { generateTokens } from "../utils/tokens.utils.js";
 import type { User } from "../generated/prisma/client.js";
+import config from "../config/config.js";
+import { OAuth2Client } from "google-auth-library";
+import { createSession } from "../helpers/create-session.helper.js";
 
 interface RegisterInputProps {
   fullName: string;
@@ -53,25 +56,12 @@ export const register = async ({
     await tx.profile.create({
       data: { userId: newUser.id },
     });
-
-    // C. Generate Tokens
-    const { accessToken, refreshToken } = generateTokens(
-      newUser.id,
-      newUser.role,
+    
+    const { accessToken, refreshToken } = await createSession(
+      newUser,
+      ip,
+      userAgent,
     );
-
-    // D. Create Device Session
-    // This links the specific laptop/browser to the refresh token
-    await tx.deviceSession.create({
-      data: {
-        userId: newUser.id,
-        token: refreshToken, // Storing the refresh token for revocation support
-        ipAddress: ip,
-        deviceType: deviceType || "unknown",
-        userAgent: userAgent,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 Days
-      },
-    });
 
     return { user: newUser, accessToken, refreshToken };
   });
@@ -95,25 +85,60 @@ export const login = async ({
   }
 
   // 2. Check Password
-  const isPasswordValid = await verifyPassword(password, user.password_hash);
+  const isPasswordValid = await verifyPassword(password, user.password_hash!);
   if (!isPasswordValid) {
     throw new ServiceError("Invalid email or password", 401);
   }
 
   // 3. Generate Tokens
-  const { accessToken, refreshToken } = generateTokens(user.id, user.role);
+  const { accessToken, refreshToken } = await createSession(
+    user,
+    ip,
+    userAgent,
+  );
 
-  // 4. Create Device Session (for tracking/revocation)
-  await prisma.deviceSession.create({
-    data: {
-      userId: user.id,
-      token: refreshToken,
-      ipAddress: ip,
-      deviceType: deviceType || "unknown",
-      userAgent: userAgent,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 Days
-    },
+  return { user, accessToken, refreshToken };
+};
+
+const client = new OAuth2Client(config.google.clientId);
+
+export const googleAuthService = async (
+  idToken: string,
+  ip: string,
+  userAgent: string,
+) => {
+  // 1. Verify the token with Google
+  const ticket = await client.verifyIdToken({
+    idToken,
+    audience: config.google.clientId!,
   });
+
+  const payload = ticket.getPayload();
+  if (!payload || !payload.email) {
+    throw { status: 400, message: "Invalid Google Account" };
+  }
+
+  const { email, name } = payload;
+
+  // 2. Find or Create the user
+  let user = await prisma.user.findUnique({ where: { email } });
+
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        email,
+        fullName: name || "Google User",
+        // password remains null for Google users
+      },
+    });
+  }
+
+  // 3. Create Session & Tokens
+  const { accessToken, refreshToken } = await createSession(
+    user,
+    ip,
+    userAgent,
+  );
 
   return { user, accessToken, refreshToken };
 };

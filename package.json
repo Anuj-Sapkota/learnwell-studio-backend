@@ -18,9 +18,11 @@
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
+    "google-auth-library": "^10.6.2",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.20.0",
+    "ua-parser-js": "^2.0.9",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -32,6 +34,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.4.0",
     "@types/pg": "^8.18.0",
+    "@types/ua-parser-js": "^0.7.39",
     "nodemon": "^3.1.14",
     "prisma": "^7.4.2",
     "ts-node": "^10.9.2",

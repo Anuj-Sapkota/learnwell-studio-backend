@@ -17,7 +17,7 @@ datasource db {
 model User {
   id            String   @id @default(uuid()) // Using UUID for better security
   email         String   @unique
-  password_hash String // Will store Hashed passwords
+  password_hash  String? // Will store Hashed passwords - Optional for google users
   fullName      String
   phoneNumber   String?  @unique
   role          Role     @default(STUDENT) // Role-based access control
