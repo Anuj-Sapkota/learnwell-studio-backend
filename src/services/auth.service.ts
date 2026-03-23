@@ -61,6 +61,7 @@ export const register = async ({
       newUser,
       ip,
       userAgent,
+      tx
     );
 
     return { user: newUser, accessToken, refreshToken };

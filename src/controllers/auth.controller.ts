@@ -6,6 +6,7 @@ import { setRefreshCookie } from "../utils/tokens.utils.js";
 import { formatAuthResponse } from "../helpers/format-auth-response.helper.js";
 import { loginSchema, registerSchema } from "../utils/auth.validator.js";
 import { refreshSession } from "../services/auth.service.js";
+
 export const registerUser = async (
   req: Request,
   res: Response,
