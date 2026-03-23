@@ -19,7 +19,7 @@ export const createCourseService = async (data: {
     },
   });
 };
-
+// Fetches all the available courses
 export const getAllCoursesService = async () => {
   return await prisma.course.findMany({
     include: {
@@ -94,6 +94,25 @@ export const getCoursePreviewService = async (courseId: string) => {
       notesCount: true,
       instructor: {
         select: { fullName: true },
+      },
+    },
+  });
+};
+
+// fetches the courses created by the fixed instructor
+export const getInstructorCoursesService = async (instructorId: string) => {
+  return await prisma.course.findMany({
+    where: {
+      instructorId: instructorId,
+    },
+    orderBy: {
+      createdAt: 'desc', // Show newest courses first
+    },
+    include: {
+      _count: {
+        select: {
+          sections: true, 
+        },
       },
     },
   });

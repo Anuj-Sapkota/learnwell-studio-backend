@@ -1,5 +1,4 @@
 import type { Request, Response } from "express";
-import { z } from "zod";
 
 import {
   login,
@@ -17,11 +16,12 @@ export const registerUser = async (
   res: Response,
 ): Promise<any> => {
   try {
+    console.log("Reached controller");
     // 1. req.body is already validated by middleware
     const validatedData = req.body as RegisterInput;
 
     // 2. Extract network info
-    const ip = req.ip || req.socket?.remoteAddress || "0.0.0.0";  
+    const ip = req.ip || req.socket?.remoteAddress || "0.0.0.0";
     const userAgent = req.get("User-Agent") || "unknown";
 
     // 3. Call the service
@@ -45,6 +45,8 @@ export const registerUser = async (
 export const loginUser = async (req: Request, res: Response) => {
   try {
     // 1. req.body is already validated by middleware
+    console.log("Reached controller for login");
+
     const validatedData = req.body as LoginInput;
 
     // 2. Extract network and browser info

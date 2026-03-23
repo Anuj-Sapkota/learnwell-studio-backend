@@ -113,3 +113,25 @@ export const getCoursePreview = async (req: Request, res: Response) => {
     });
   }
 };
+
+// get the logged in instructor code
+export const getMyCourses = async (req: Request, res: Response) => {
+  try {
+    // Get the ID 
+    const instructorId = (req as any).user.userId;
+
+    const courses = await courseService.getInstructorCoursesService(instructorId);
+
+    // Return the data
+    return res.status(200).json({
+      success: true,
+      message: "Instructor courses fetched successfully",
+      data: courses,
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch your courses",
+    });
+  }
+};

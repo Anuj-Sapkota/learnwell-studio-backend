@@ -6,6 +6,7 @@ import {
   getCourseDetail,
   getCoursePreview,
   getCourses,
+  getMyCourses,
 } from "../controllers/course.controller.js";
 import { protect, authorize } from "../middleware/auth.middleware.js";
 
@@ -19,6 +20,9 @@ router.get("/preview/:courseId", getCoursePreview);
 
 // Private: Only Instructors can create
 router.post("/", protect, authorize("INSTRUCTOR", "ADMIN"), createCourse);
+
+//  Get logged in instructor course
+router.get("/my-courses", protect, authorize("INSTRUCTOR"), getMyCourses);
 
 // Add Section to specific course
 router.post(
@@ -38,6 +42,5 @@ router.post(
 
 // Get full course content (for students to watch)
 router.get("/:courseId/full", protect, getCourseDetail);
-
 
 export default router;
