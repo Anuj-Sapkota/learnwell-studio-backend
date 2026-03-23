@@ -4,6 +4,7 @@ import {
   addSection,
   createCourse,
   getCourseDetail,
+  getCoursePreview,
   getCourses,
 } from "../controllers/course.controller.js";
 import { protect, authorize } from "../middleware/auth.middleware.js";
@@ -12,6 +13,9 @@ const router = express.Router();
 
 // Public: Anyone can see courses
 router.get("/", getCourses);
+
+// get course preview details
+router.get("/preview/:courseId", getCoursePreview);
 
 // Private: Only Instructors can create
 router.post("/", protect, authorize("INSTRUCTOR", "ADMIN"), createCourse);
@@ -34,5 +38,6 @@ router.post(
 
 // Get full course content (for students to watch)
 router.get("/:courseId/full", protect, getCourseDetail);
+
 
 export default router;

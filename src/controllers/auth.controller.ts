@@ -1,59 +1,40 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 
-import { login, register, logout, googleAuthService } from "../services/auth.service.js";
+import {
+  login,
+  register,
+  logout,
+  googleAuthService,
+  refreshSession,
+} from "../services/auth.service.js";
 import { setRefreshCookie } from "../utils/tokens.utils.js";
 import { formatAuthResponse } from "../helpers/format-auth-response.helper.js";
-import { loginSchema, registerSchema } from "../utils/auth.validator.js";
-import { refreshSession } from "../services/auth.service.js";
+import type { LoginInput, RegisterInput } from "../schemas/auth.schema.js";
 
 export const registerUser = async (
   req: Request,
   res: Response,
 ): Promise<any> => {
   try {
-    // 1. Validate the request body using safeParse
-    const validation = registerSchema.safeParse(req.body);
+    // 1. req.body is already validated by middleware
+    const validatedData = req.body as RegisterInput;
 
-    // 2. If validation fails, handle it immediately
-    if (!validation.success) {
-      const formattedErrors: Record<string, string> = {};
-
-      validation.error.issues.forEach((issue) => {
-        const key = issue.path[0];
-        if (typeof key === "string") {
-          formattedErrors[key] = issue.message;
-        }
-      });
-
-      return res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: formattedErrors,
-      });
-    }
-
-    // Extract the valid data
-    const validatedData = validation.data;
-
-    // 3. Extract network info
-    const ip = req.ip || req.socket?.remoteAddress || "0.0.0.0";
+    // 2. Extract network info
+    const ip = req.ip || req.socket?.remoteAddress || "0.0.0.0";  
     const userAgent = req.get("User-Agent") || "unknown";
 
-    // 4. Call the service (deviceType removed from arguments)
+    // 3. Call the service
     const { user, accessToken, refreshToken } = await register({
       ...validatedData,
       ip,
       userAgent,
     });
 
-    // 5. Security layers
+    // 4. Security layers & Response
     setRefreshCookie(res, refreshToken);
-
-    // 6. Sanitize and respond
     return res.status(201).json(formatAuthResponse(user, accessToken));
   } catch (err: any) {
-    // Note: ZodError check is no longer needed here because safeParse handles it above
     return res.status(err.status || 500).json({
       success: false,
       message: err.message || "Internal Server Error",
@@ -61,50 +42,26 @@ export const registerUser = async (
   }
 };
 
-// Login controller
 export const loginUser = async (req: Request, res: Response) => {
   try {
-    // 1. Validate the request body using safeParse
-    const validation = loginSchema.safeParse(req.body);
+    // 1. req.body is already validated by middleware
+    const validatedData = req.body as LoginInput;
 
-    // 2. Handle validation failure
-    if (!validation.success) {
-      const formattedErrors: Record<string, string> = {};
-      validation.error.issues.forEach((issue) => {
-        const key = issue.path[0];
-        if (typeof key === "string") {
-          formattedErrors[key] = issue.message;
-        }
-      });
-
-      return res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: formattedErrors,
-      });
-    }
-
-    // Extract valid data
-    const validatedData = validation.data;
-
-    // 3. Extract network and browser info
+    // 2. Extract network and browser info
     const ip = req.ip || "0.0.0.0";
     const userAgent = req.get("User-Agent") || "unknown";
 
-    // 4. Call the service (deviceType removed)
+    // 3. Call the service
     const { user, accessToken, refreshToken } = await login({
       ...validatedData,
       ip,
       userAgent,
     });
 
-    // 5. Security: Set the Refresh Token in a secure cookie
+    // 4. Security & Response
     setRefreshCookie(res, refreshToken);
-
-    // 6. Respond with user data and Access Token
     return res.status(200).json(formatAuthResponse(user, accessToken));
   } catch (err: any) {
-    // Handles ServiceErrors (e.g., 401 Invalid Credentials) or 500 Server Errors
     return res.status(err.status || 500).json({
       success: false,
       message: err.message || "Internal Server Error",
@@ -118,9 +75,9 @@ export const googleLogin = async (req: Request, res: Response) => {
     const { idToken } = req.body;
 
     if (!idToken) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Google Token is required" 
+      return res.status(400).json({
+        success: false,
+        message: "Google Token is required",
       });
     }
 
@@ -129,21 +86,20 @@ export const googleLogin = async (req: Request, res: Response) => {
 
     // Call the service
     const { user, accessToken, refreshToken } = await googleAuthService(
-      idToken, 
-      ip, 
-      userAgent
+      idToken,
+      ip,
+      userAgent,
     );
 
     // Set cookie and respond
     setRefreshCookie(res, refreshToken);
-    
-    return res.status(200).json(formatAuthResponse(user, accessToken));
 
+    return res.status(200).json(formatAuthResponse(user, accessToken));
   } catch (err: any) {
     console.error("Google Auth Error:", err);
-    return res.status(err.status || 401).json({ 
-      success: false, 
-      message: err.message || "Google authentication failed" 
+    return res.status(err.status || 401).json({
+      success: false,
+      message: err.message || "Google authentication failed",
     });
   }
 };
@@ -210,7 +166,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
       // Default to 401 for refresh failures
       success: false,
       message: err.message || "Session expired, please login again",
-      errors: {}, 
+      errors: {},
     });
   }
 };

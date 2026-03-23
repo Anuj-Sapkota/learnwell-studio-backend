@@ -6,6 +6,8 @@ import {
   refreshAccessToken,
   registerUser,
 } from "../controllers/auth.controller.js";
+import { validate } from "../middleware/validate.middleware.js";
+import { loginSchema, registerSchema } from "../schemas/auth.schema.js";
 
 const route = express.Router();
 
@@ -19,7 +21,7 @@ const route = express.Router();
  * @returns { object } 201 - User object and Access Token
  */
 
-route.post("/register", registerUser);
+route.post("/register", validate(registerSchema), registerUser);
 
 /**
  * @desc    Authenticate user and create session
@@ -29,7 +31,7 @@ route.post("/register", registerUser);
  * @body    { string } password - User's password
  * @returns { object } 200 - User object and Access Token
  */
-route.post("/login", loginUser);
+route.post("/login", validate(loginSchema), loginUser);
 
 /**
  * @desc    Logout user and invalidate session

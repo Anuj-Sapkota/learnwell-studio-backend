@@ -2,22 +2,23 @@ import { prisma } from "../lib/prisma.js";
 
 export const createCourseService = async (data: {
   title: string;
-  description?: string;
+  description?: string | null;
+  shortDescription: string;
   price: number;
   instructorId: string;
-  category?: string;
+  category: string;
+  duration: string;
+  lectureCount?: number;
+  notesCount?: number;
 }) => {
   return await prisma.course.create({
     data: {
-      title: data.title,
-      description: data.description,
-      price: data.price,
-      instructorId: data.instructorId,
-      category: data.category,
+     ...data,
+     lectureCount: data.lectureCount ?? 0,
+     notesCount: data.notesCount ?? 0,
     },
   });
 };
-
 
 export const getAllCoursesService = async () => {
   return await prisma.course.findMany({
@@ -41,8 +42,8 @@ export const createSectionService = async (courseId: string, title: string) => {
 
 // Add a Lesson to a Section
 export const createLessonService = async (data: {
-  sectionId: string;
   title: string;
+  sectionId: string;
   videoUrl?: string;
   content?: string;
 }) => {
@@ -50,8 +51,8 @@ export const createLessonService = async (data: {
     data: {
       title: data.title,
       sectionId: data.sectionId,
-      videoUrl: data.videoUrl,
-      content: data.content,
+      videoUrl: data.videoUrl ?? "",
+      content: data.content ??  "",
     },
   });
 };
@@ -74,6 +75,25 @@ export const getCourseDetailService = async (courseId: string) => {
             orderBy: { order: "asc" }, // Ensures Lesson 1 comes before Lesson 2
           },
         },
+      },
+    },
+  });
+};
+
+//Get the preview details for  the course before buying
+export const getCoursePreviewService = async (courseId: string) => {
+  return await prisma.course.findUnique({
+    where: { id: courseId },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      price: true,
+      duration: true,
+      lectureCount: true,
+      notesCount: true,
+      instructor: {
+        select: { fullName: true },
       },
     },
   });

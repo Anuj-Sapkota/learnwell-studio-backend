@@ -1,12 +1,8 @@
 import { ServiceError } from "../errors/service.error.js";
-import {
-  MAX_PASSWORD_LENGTH,
-  MIN_PASSWORD_LENGTH,
-} from "../constants/auth.constants.js";
 import { hashPassword, verifyPassword } from "../utils/password.util.js";
 import { prisma } from "../lib/prisma.js";
 import { generateTokens } from "../utils/tokens.utils.js";
-import type { User } from "../generated/prisma/client.js";
+import type { User } from "@prisma/client";
 import config from "../config/config.js";
 import { OAuth2Client } from "google-auth-library";
 import { createSession } from "../helpers/create-session.helper.js";
