@@ -20,7 +20,7 @@ import {
   // createLessonSchema
 } from "../schemas/course.schema.js";
 import { uploadImage, uploadMixed, uploadVideo } from "../config/cloudinary.js";
-import { enrollInCourse } from "../controllers/enrollment.controller.js";
+import { enrollInCourse, getCoursePlayer } from "../controllers/enrollment.controller.js";
 
 const router = express.Router();
 
@@ -29,9 +29,9 @@ router.get("/", getCourses);
 
 // Course preview, before buying
 router.get(
-  "/preview/:courseId", 
-  validate(courseIdParamSchema), 
-  getCoursePreview
+  "/preview/:courseId",
+  validate(courseIdParamSchema),
+  getCoursePreview,
 );
 
 // --- INSTRUCTOR/ADMIN ROUTES ---
@@ -67,14 +67,30 @@ router.post(
 );
 
 // get course details in depth
-router.get("/:courseId/full", protect, validate(courseIdParamSchema), getCourseDetail);
+router.get(
+  "/:courseId/full",
+  protect,
+  validate(courseIdParamSchema),
+  getCourseDetail,
+);
 
 //enroll in course
-router.post("/:courseId/enroll", protect, validate(enrollInCourseSchema), enrollInCourse);
+router.post(
+  "/:courseId/enroll",
+  protect,
+  validate(enrollInCourseSchema),
+  enrollInCourse,
+);
 
 // Student Dashboard
 router.get("/enrolled/me", protect, getMyEnrolledCourses);
 
-// The Course Player (Logic for sections + lessons + access control)
+// The Course Player
+router.get(
+  "/:courseId/player",
+  protect,
+  validate(courseIdParamSchema),
+  getCoursePlayer,
+);
 
 export default router;

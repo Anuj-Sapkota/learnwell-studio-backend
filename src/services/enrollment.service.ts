@@ -52,3 +52,30 @@ export const checkEnrollment = async (userId: string, courseId: string) => {
   });
   return !!enrollment; // Returns true if enrolled, false otherwise
 };
+
+// get full course content if the user is enrolled
+export const getCourseFullContentService = async (courseId: string) => {
+  return await prisma.course.findUnique({
+    where: { id: courseId },
+    include: {
+      instructor: {
+        select: { fullName: true }
+      },
+      sections: {
+        orderBy: { order: "asc" },
+        include: {
+          lessons: {
+            orderBy: { order: "asc" },
+            select: {
+              id: true,
+              title: true,
+              content: true,
+              videoUrl: true, 
+              duration: true,
+            }
+          }
+        }
+      }
+    }
+  });
+};

@@ -52,12 +52,12 @@ export const register = async ({
     await tx.profile.create({
       data: { userId: newUser.id },
     });
-    
+
     const { accessToken, refreshToken } = await createSession(
       newUser,
       ip,
       userAgent,
-      tx
+      tx,
     );
 
     return { user: newUser, accessToken, refreshToken };
@@ -83,7 +83,7 @@ export const login = async ({
 
   // 2. Check Password
   const isPasswordValid = await verifyPassword(password, user.password_hash!);
-  
+
   if (!isPasswordValid) {
     throw new ServiceError("Invalid email or password", 401);
   }
@@ -139,6 +139,22 @@ export const googleAuthService = async (
   );
 
   return { user, accessToken, refreshToken };
+};
+
+// get me route to get the logged in user's data
+export const getMeService = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      role: true,
+      createdAt: true,
+    },
+  });
+
+  return user;
 };
 
 /**

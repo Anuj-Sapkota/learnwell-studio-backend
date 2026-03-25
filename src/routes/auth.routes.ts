@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  getMe,
   googleLogin,
   loginUser,
   logoutUser,
@@ -8,6 +9,7 @@ import {
 } from "../controllers/auth.controller.js";
 import { validate } from "../middleware/validate.middleware.js";
 import { loginSchema, registerSchema } from "../schemas/auth.schema.js";
+import { protect } from "../middleware/auth.middleware.js";
 
 const route = express.Router();
 
@@ -57,6 +59,7 @@ route.post("/refresh", refreshAccessToken);
  */
 route.post("/google", googleLogin);
 
-
+// get me route which runs after login
+route.get("/me", protect, getMe);
 
 export default route;

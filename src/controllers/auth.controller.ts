@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 
 import {
   login,
@@ -6,6 +6,7 @@ import {
   logout,
   googleAuthService,
   refreshSession,
+  getMeService,
 } from "../services/auth.service.js";
 import { setRefreshCookie } from "../utils/tokens.utils.js";
 import { formatAuthResponse } from "../helpers/format-auth-response.helper.js";
@@ -14,6 +15,7 @@ import type { LoginInput, RegisterInput } from "../schemas/auth.schema.js";
 export const registerUser = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ): Promise<any> => {
   try {
     console.log("Reached controller");
@@ -34,15 +36,16 @@ export const registerUser = async (
     // 4. Security layers & Response
     setRefreshCookie(res, refreshToken);
     return res.status(201).json(formatAuthResponse(user, accessToken));
-  } catch (err: any) {
-    return res.status(err.status || 500).json({
-      success: false,
-      message: err.message || "Internal Server Error",
-    });
+  } catch (error: any) {
+    next(error);
   }
 };
 
-export const loginUser = async (req: Request, res: Response) => {
+export const loginUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     // 1. req.body is already validated by middleware
     console.log("Reached controller for login");
@@ -62,17 +65,18 @@ export const loginUser = async (req: Request, res: Response) => {
 
     // 4. Security & Response
     setRefreshCookie(res, refreshToken);
-    return res.status(200).json(formatAuthResponse(user, accessToken));
-  } catch (err: any) {
-    return res.status(err.status || 500).json({
-      success: false,
-      message: err.message || "Internal Server Error",
-    });
+    return res.status(200).json(formatAuthResponse(accessToken));
+  } catch (error: any) {
+    next(error);
   }
 };
 
 // login with google
-export const googleLogin = async (req: Request, res: Response) => {
+export const googleLogin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { idToken } = req.body;
 
@@ -97,17 +101,44 @@ export const googleLogin = async (req: Request, res: Response) => {
     setRefreshCookie(res, refreshToken);
 
     return res.status(200).json(formatAuthResponse(user, accessToken));
-  } catch (err: any) {
-    console.error("Google Auth Error:", err);
-    return res.status(err.status || 401).json({
-      success: false,
-      message: err.message || "Google authentication failed",
+  } catch (error: any) {
+    console.error("Google Auth Error:", error);
+    next(error);
+  }
+};
+
+export const getMe = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    // 'req.user.userId' comes from your 'protect' middleware
+    const userId = (req as any).user.userId;
+
+    const user = await getMeService(userId);
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user,
     });
+  } catch (error) {
+    next(error);
   }
 };
 
 //Logout the user, clear his refresh and access token
-export const logoutUser = async (req: Request, res: Response) => {
+export const logoutUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     // 1. Get the token from cookies
     const refreshToken = req.cookies.refreshToken;
@@ -128,17 +159,18 @@ export const logoutUser = async (req: Request, res: Response) => {
       success: true,
       message: "Logged out successfully",
     });
-  } catch (err: any) {
-    return res.status(500).json({
-      success: false,
-      message: "An error occurred during logout",
-    });
+  } catch (error: any) {
+    next(error);
   }
 };
 
 // Create new access token
 
-export const refreshAccessToken = async (req: Request, res: Response) => {
+export const refreshAccessToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const refreshToken = req.cookies.refreshToken;
 
@@ -156,7 +188,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
       success: true,
       accessToken, // Send the new short-lived token to the frontend
     });
-  } catch (err: any) {
+  } catch (error: any) {
     // If the refresh token is invalid/expired, clear the cookie so the frontend redirects to login
     res.clearCookie("refreshToken", {
       httpOnly: true,
@@ -164,11 +196,6 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
       sameSite: "strict",
     });
 
-    return res.status(err.status || 401).json({
-      // Default to 401 for refresh failures
-      success: false,
-      message: err.message || "Session expired, please login again",
-      errors: {},
-    });
+    next(error);
   }
 };
