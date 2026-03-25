@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import * as courseService from "../services/course.service.js";
 import type { CreateCourseInput } from "../schemas/course.schema.js";
+import { v2 as cloudinary } from "cloudinary";
 
 interface ProtectedRequest extends Request {
   user: {
@@ -61,6 +62,18 @@ export const addLesson = async (req: Request, res: Response) => {
     const { title, content } = req.body; // validation apply later------
 
     const videoUrl = req.file ? (req.file as any).path : null;
+    const publicId = req.file?.filename;
+
+    //fetching the result for duration
+    const result = await cloudinary.api.resource(publicId, {
+      resource_type: "video",
+      image_metadata: true,
+    });
+
+    const duration = Math.round(result.duration || 0);
+
+    
+    console.log("Duration of the uploaded file in lesson: ", result);
 
     if (!videoUrl && !content) {
       return res.status(400).json({
@@ -73,8 +86,17 @@ export const addLesson = async (req: Request, res: Response) => {
       title,
       content,
       videoUrl,
+      duration,
       sectionId,
     });
+
+    //fetch section by id 
+    const section = await courseService.getSectionById(sectionId);
+
+    if (section?.courseId) {
+      await courseService.updateCourseTotalDuration(section.courseId);
+    }
+
     res.status(201).json({ success: true, data: lesson });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

@@ -55,7 +55,7 @@ model Course {
   price           Float        @default(0)
   category        String?
   level           String       @default("BEGINNER")
-  duration        String?
+  totalDuration   Int          @default(0)
   instructorId    String
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -84,6 +84,7 @@ model Lesson {
   content   String?
   videoUrl  String?
   pdfUrl    String?
+  duration  Int @default(0)
   order     Int     @default(0)
   sectionId String
   section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)

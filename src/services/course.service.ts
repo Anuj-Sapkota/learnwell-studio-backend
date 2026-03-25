@@ -13,13 +13,12 @@ export const createCourseService = async (data: {
 }) => {
   return await prisma.course.create({
     data: {
-     ...data,
-     lectureCount: data.lectureCount ?? 0,
-     notesCount: data.notesCount ?? 0,
+      ...data,
+      lectureCount: data.lectureCount ?? 0,
+      notesCount: data.notesCount ?? 0,
     },
   });
 };
-
 
 // Fetches all the available courses
 export const getAllCoursesService = async () => {
@@ -47,15 +46,16 @@ export const createLessonService = async (data: {
   title: string;
   sectionId: string;
   videoUrl?: string;
+  duration: number;
   content?: string;
-  // duration? : number; 
 }) => {
   return await prisma.lesson.create({
     data: {
       title: data.title,
       sectionId: data.sectionId,
       videoUrl: data.videoUrl ?? "",
-      content: data.content ??  "",
+      duration: data.duration,
+      content: data.content ?? "",
     },
   });
 };
@@ -109,14 +109,53 @@ export const getInstructorCoursesService = async (instructorId: string) => {
       instructorId: instructorId,
     },
     orderBy: {
-      createdAt: 'desc', // Show newest courses first
+      createdAt: "desc", // Show newest courses first
     },
     include: {
       _count: {
         select: {
-          sections: true, 
+          sections: true,
         },
       },
     },
   });
+};
+
+// updates the total course duration each time a new lesson is added
+
+export const updateCourseTotalDuration = async (courseId: string) => {
+  
+  // 1. Sum the duration of all lessons in this course
+  const aggregation = await prisma.lesson.aggregate({
+    where: {
+      section: {
+        courseId: courseId,
+      },
+    },
+    _sum: {
+      duration: true,
+    },
+  });
+
+  const newTotalDuration = aggregation._sum.duration || 0;
+
+  // 2. Update the Course record
+  const updatedCourse = await prisma.course.update({
+    where: { id: courseId },
+    data: {
+      totalDuration: newTotalDuration,
+    },
+  });
+
+  return updatedCourse;
+};
+
+// get section by Id
+export const getSectionById = async (sectionId: string) => {
+  const section = await prisma.section.findUnique({
+    where: { id: sectionId },
+    select: { courseId: true },
+  });
+
+  return section;
 };
