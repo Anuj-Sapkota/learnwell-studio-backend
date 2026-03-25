@@ -7,7 +7,7 @@ export const createCourseService = async (data: {
   price: number;
   instructorId: string;
   category: string;
-  duration: string;
+  totalDuration?: number;
   lectureCount?: number;
   notesCount?: number;
 }) => {
@@ -46,7 +46,7 @@ export const createLessonService = async (data: {
   title: string;
   sectionId: string;
   videoUrl?: string;
-  duration: number;
+  duration?: any;
   content?: string;
 }) => {
   return await prisma.lesson.create({
@@ -54,7 +54,7 @@ export const createLessonService = async (data: {
       title: data.title,
       sectionId: data.sectionId,
       videoUrl: data.videoUrl ?? "",
-      duration: data.duration,
+      duration: 0,
       content: data.content ?? "",
     },
   });
@@ -90,14 +90,37 @@ export const getCoursePreviewService = async (courseId: string) => {
     select: {
       id: true,
       title: true,
+      shortDescription: true, 
       description: true,
+      thumbnail: true,        
       price: true,
-      duration: true,
-      lectureCount: true,
-      notesCount: true,
+      category: true,
+      level: true,
+      totalDuration: true,
+      videoCount: true,   
+      
       instructor: {
-        select: { fullName: true },
+        select: { 
+          fullName: true,
+          profile: { select: { avatar: true, bio: true } } // Show who is teaching
+        },
       },
+// section w
+      sections: {
+        orderBy: { order: 'asc' },
+        select: {
+          id: true,
+          title: true,
+          lessons: {
+            orderBy: { order: 'asc' },
+            select: {
+              id: true,
+              title: true,
+              duration: true,
+            }
+          }
+        }
+      }
     },
   });
 };
@@ -124,7 +147,7 @@ export const getInstructorCoursesService = async (instructorId: string) => {
 // updates the total course duration each time a new lesson is added
 
 export const updateCourseTotalDuration = async (courseId: string) => {
-  
+
   // 1. Sum the duration of all lessons in this course
   const aggregation = await prisma.lesson.aggregate({
     where: {

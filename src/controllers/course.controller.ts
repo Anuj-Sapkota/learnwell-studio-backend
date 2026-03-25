@@ -1,7 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
-import * as courseService from "../services/course.service.js";
+import { getStudentEnrollments } from "../services/enrollment.service.js"
 import type { CreateCourseInput } from "../schemas/course.schema.js";
 import { v2 as cloudinary } from "cloudinary";
+import { createCourseService, createLessonService, createSectionService, getAllCoursesService, getCourseDetailService, getCoursePreviewService, getInstructorCoursesService, getSectionById, updateCourseTotalDuration } from "../services/course.service.js";
 
 interface ProtectedRequest extends Request {
   user: {
@@ -22,8 +23,9 @@ export const createCourse = async (
 
     const validatedData = req.body as CreateCourseInput;
 
-    const course = await courseService.createCourseService({
+    const course = await createCourseService({
       ...validatedData,
+      price: Number(validatedData.price), // as formdata sends string
       instructorId,
     });
 
@@ -36,7 +38,7 @@ export const createCourse = async (
 
 export const getCourses = async (req: Request, res: Response) => {
   try {
-    const courses = await courseService.getAllCoursesService();
+    const courses = await getAllCoursesService();
     res.status(200).json({ success: true, data: courses });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -44,19 +46,19 @@ export const getCourses = async (req: Request, res: Response) => {
 };
 
 // Add Section
-export const addSection = async (req: Request, res: Response) => {
+export const addSection = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { courseId } = req.params;
     const { title } = req.body;
-    const section = await courseService.createSectionService(courseId, title);
+    const section = await createSectionService(courseId, title);
     res.status(201).json({ success: true, data: section });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+   next(error)
   }
 };
 
 // Add Lesson
-export const addLesson = async (req: Request, res: Response) => {
+export const addLesson = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { sectionId } = req.params;
     const { title, content } = req.body; // validation apply later------
@@ -72,7 +74,6 @@ export const addLesson = async (req: Request, res: Response) => {
 
     const duration = Math.round(result.duration || 0);
 
-    
     console.log("Duration of the uploaded file in lesson: ", result);
 
     if (!videoUrl && !content) {
@@ -82,7 +83,7 @@ export const addLesson = async (req: Request, res: Response) => {
       });
     }
 
-    const lesson = await courseService.createLessonService({
+    const lesson = await createLessonService({
       title,
       content,
       videoUrl,
@@ -90,24 +91,24 @@ export const addLesson = async (req: Request, res: Response) => {
       sectionId,
     });
 
-    //fetch section by id 
-    const section = await courseService.getSectionById(sectionId);
+    //fetch section by id
+    const section = await getSectionById(sectionId);
 
     if (section?.courseId) {
-      await courseService.updateCourseTotalDuration(section.courseId);
+      await updateCourseTotalDuration(section.courseId);
     }
 
     res.status(201).json({ success: true, data: lesson });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error)
   }
 };
 
-export const getCourseDetail = async (req: Request, res: Response) => {
+export const getCourseDetail = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { courseId } = req.params;
 
-    const course = await courseService.getCourseDetailService(courseId);
+    const course = await getCourseDetailService(courseId);
 
     if (!course) {
       return res.status(404).json({
@@ -121,19 +122,16 @@ export const getCourseDetail = async (req: Request, res: Response) => {
       data: course,
     });
   } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+   next(error)
+    };
+  };
 
-export const getCoursePreview = async (req: Request, res: Response) => {
+export const getCoursePreview = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { courseId } = req.params;
 
     // 1. Call the service
-    const course = await courseService.getCoursePreviewService(courseId);
+    const course = await getCoursePreviewService(courseId);
 
     // 2. Handle 404 if course ID is wrong
     if (!course) {
@@ -148,23 +146,20 @@ export const getCoursePreview = async (req: Request, res: Response) => {
       success: true,
       data: course,
     });
-  } catch (err: any) {
-    console.error("Get Course Preview Error:", err);
-    return res.status(500).json({
-      success: false,
-      message: err.message || "Internal Server Error",
-    });
+  } catch (error: any) {
+    console.error("Get Course Preview Error:", error);
+   next(error)
   }
 };
 
 // get the logged in instructor code
-export const getMyCourses = async (req: Request, res: Response) => {
+export const getMyCourses = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Get the ID
     const instructorId = (req as any).user.userId;
 
     const courses =
-      await courseService.getInstructorCoursesService(instructorId);
+      await getInstructorCoursesService(instructorId);
 
     // Return the data
     return res.status(200).json({
@@ -173,9 +168,21 @@ export const getMyCourses = async (req: Request, res: Response) => {
       data: courses,
     });
   } catch (error: any) {
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Failed to fetch your courses",
-    });
+   next(error)
+  }
+};
+
+
+export const getMyEnrolledCourses = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.userId;
+    const enrollments = await getStudentEnrollments(userId);
+    
+    // Flatten the response so the frontend gets an array of courses directly
+    const courses = enrollments.map(e => e.course);
+
+    res.status(200).json({ success: true, data: courses });
+  } catch (error) {
+    next(error);
   }
 };

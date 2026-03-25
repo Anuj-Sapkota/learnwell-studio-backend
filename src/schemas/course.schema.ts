@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// We wrap everything in a 'body' object because that's what our middleware expects
+// schema for the course creation
 export const createCourseSchema = z.object({
   body: z.object({
     title: z.string().min(3, "Title must be at least 3 chars"),
@@ -9,22 +9,51 @@ export const createCourseSchema = z.object({
     price: z.coerce.number().nonnegative("Price cannot be negative"),
     category: z.string(),
     //stats
-    lectureCount: z.coerce.number().int().nonnegative().default(0),
+    videoCount: z.coerce.number().int().nonnegative().default(0),
     notesCount: z.coerce.number().int().nonnegative().default(0),
     //Duration with regex
-    duration: z
-      .string()
-      .regex(/^\d+h \d+m \d+s$/, "Format must be: 00h 00m 00s")
-      .default("0h 0m 0s"),
+    totalDuration: z.coerce.number().int().nonnegative().default(0),
   }),
 });
 
+//  Generic schema for any route that just needs a valid UUID in params
+export const courseIdParamSchema = z.object({
+  params: z.object({
+    courseId: z.string().uuid("Invalid Course ID format"),
+  }),
+});
+
+export const sectionIdParamSchema = z.object({
+  params: z.object({
+    sectionId: z.string().uuid("Invalid Section ID format"),
+  }),
+});
+
+//  Add Section Schema
 export const addSectionSchema = z.object({
   params: z.object({
-    courseId: z.string().uuid("Invalid Course ID format"), 
+    courseId: z.string().uuid("Invalid Course ID format"),
   }),
   body: z.object({
     title: z.string().min(1, "Section title is required"),
+  }),
+});
+
+//  Create Lesson Schema
+export const createLessonSchema = z.object({
+  params: z.object({
+    sectionId: z.string().uuid("Invalid Section ID format"),
+  }),
+  body: z.object({
+    title: z.string().min(3, "Lesson title must be at least 3 chars"),
+    content: z.string().optional(),
+  }),
+});
+
+//  Enrollment Schema
+export const enrollInCourseSchema = z.object({
+  params: z.object({
+    courseId: z.string().uuid("Invalid Course ID format"),
   }),
 });
 

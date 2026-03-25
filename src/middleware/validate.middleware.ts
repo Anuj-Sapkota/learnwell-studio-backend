@@ -17,26 +17,22 @@ export const validate =
         params: req.params,
       });
 
-      // Update req with parsed data
-      Object.assign(req.body, parsed.body);
-      Object.assign(req.params, parsed.params);
-      Object.assign(req.query, parsed.query);
+      if (parsed.body) {
+        req.body = Object.assign(req.body || {}, parsed.body);
+      }
+
+      if (parsed.params) {
+        // We don't overwrite req.params, we just update its properties
+        Object.assign(req.params, parsed.params);
+      }
+
+      if (parsed.query) {
+        // We don't overwrite req.query, we just update its properties
+        Object.assign(req.query, parsed.query);
+      }
 
       return next();
     } catch (error) {
-      //   if (error instanceof ZodError) {
-      //     return res.status(400).json({
-      //       success: false,
-      //       message: "Validation Error",
-      //       errors: error.flatten().fieldErrors, // Returns readable errors
-      //     });
-      //   }
-      //   console.log(error);
-      //   return res
-      //     .status(500)
-      //     .json({ success: false, message: "Internal Server Error" });
-      //
-
       next(error);
     }
   };

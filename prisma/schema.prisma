@@ -95,6 +95,7 @@ model Enrollment {
   userId    String
   courseId  String
   createdAt DateTime @default(now())
+
   course    Course   @relation(fields: [courseId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
 
