@@ -19,6 +19,8 @@ export const createCourseService = async (data: {
     },
   });
 };
+
+
 // Fetches all the available courses
 export const getAllCoursesService = async () => {
   return await prisma.course.findMany({
@@ -46,6 +48,7 @@ export const createLessonService = async (data: {
   sectionId: string;
   videoUrl?: string;
   content?: string;
+  // duration? : number; 
 }) => {
   return await prisma.lesson.create({
     data: {

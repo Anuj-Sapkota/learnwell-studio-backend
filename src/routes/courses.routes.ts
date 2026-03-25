@@ -9,38 +9,53 @@ import {
   getMyCourses,
 } from "../controllers/course.controller.js";
 import { protect, authorize } from "../middleware/auth.middleware.js";
+import { validate } from "../middleware/validate.middleware.js";
+import {
+  createCourseSchema,
+  addSectionSchema,
+  // createLessonSchema
+} from "../schemas/course.schema.js";
+import { uploadImage, uploadMixed, uploadVideo } from "../config/cloudinary.js";
 
 const router = express.Router();
 
-// Public: Anyone can see courses
+// --- PUBLIC ROUTES ---
 router.get("/", getCourses);
-
-// get course preview details
+// Course preview, before buying
 router.get("/preview/:courseId", getCoursePreview);
 
-// Private: Only Instructors can create
-router.post("/", protect, authorize("INSTRUCTOR", "ADMIN"), createCourse);
+// --- INSTRUCTOR/ADMIN ROUTES ---
 
-//  Get logged in instructor course
+// Create Course
+router.post(
+  "/",
+  protect,
+  authorize("INSTRUCTOR", "ADMIN"),
+  uploadImage.single("thumbnail"),
+  validate(createCourseSchema),
+  createCourse,
+);
+
 router.get("/my-courses", protect, authorize("INSTRUCTOR"), getMyCourses);
 
-// Add Section to specific course
+// Add Section: Validate courseId in params and title in body
 router.post(
   "/:courseId/sections",
   protect,
   authorize("INSTRUCTOR"),
+  validate(addSectionSchema),
   addSection,
 );
 
-// Add Lesson to specific section
+// Add Lesson
 router.post(
   "/sections/:sectionId/lessons",
   protect,
   authorize("INSTRUCTOR"),
+  uploadVideo.single("video"),
   addLesson,
 );
 
-// Get full course content (for students to watch)
 router.get("/:courseId/full", protect, getCourseDetail);
 
 export default router;

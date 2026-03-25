@@ -18,21 +18,25 @@ export const validate =
       });
 
       // Update req with parsed data
-      req.body = parsed.body;
-      req.params = parsed.params;
-      req.query = parsed.query;
+      Object.assign(req.body, parsed.body);
+      Object.assign(req.params, parsed.params);
+      Object.assign(req.query, parsed.query);
 
       return next();
     } catch (error) {
-      if (error instanceof ZodError) {
-        return res.status(400).json({
-          success: false,
-          message: "Validation Error",
-          errors: error.flatten().fieldErrors, // Returns readable errors
-        });
-      }
-      return res
-        .status(500)
-        .json({ success: false, message: "Internal Server Error" });
+      //   if (error instanceof ZodError) {
+      //     return res.status(400).json({
+      //       success: false,
+      //       message: "Validation Error",
+      //       errors: error.flatten().fieldErrors, // Returns readable errors
+      //     });
+      //   }
+      //   console.log(error);
+      //   return res
+      //     .status(500)
+      //     .json({ success: false, message: "Internal Server Error" });
+      //
+
+      next(error);
     }
   };

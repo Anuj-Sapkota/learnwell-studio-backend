@@ -83,6 +83,7 @@ export const login = async ({
 
   // 2. Check Password
   const isPasswordValid = await verifyPassword(password, user.password_hash!);
+  
   if (!isPasswordValid) {
     throw new ServiceError("Invalid email or password", 401);
   }

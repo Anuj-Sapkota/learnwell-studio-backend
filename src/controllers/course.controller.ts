@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import * as courseService from "../services/course.service.js";
 import type { CreateCourseInput } from "../schemas/course.schema.js";
 
@@ -9,9 +9,16 @@ interface ProtectedRequest extends Request {
   };
 }
 
-export const createCourse = async (req: Request, res: Response) => {
+export const createCourse = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const { userId: instructorId } = (req as ProtectedRequest).user;
+    const instructorId = (req as ProtectedRequest).user.userId;
+
+    console.log("This is instructor id:", instructorId);
+
     const validatedData = req.body as CreateCourseInput;
 
     const course = await courseService.createCourseService({
@@ -21,7 +28,8 @@ export const createCourse = async (req: Request, res: Response) => {
 
     res.status(201).json({ success: true, data: course });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+    // res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
@@ -50,8 +58,21 @@ export const addSection = async (req: Request, res: Response) => {
 export const addLesson = async (req: Request, res: Response) => {
   try {
     const { sectionId } = req.params;
+    const { title, content } = req.body; // validation apply later------
+
+    const videoUrl = req.file ? (req.file as any).path : null;
+
+    if (!videoUrl && !content) {
+      return res.status(400).json({
+        success: false,
+        message: "A lesson must have either a video or text content.",
+      });
+    }
+
     const lesson = await courseService.createLessonService({
-      ...req.body,
+      title,
+      content,
+      videoUrl,
       sectionId,
     });
     res.status(201).json({ success: true, data: lesson });
@@ -117,10 +138,11 @@ export const getCoursePreview = async (req: Request, res: Response) => {
 // get the logged in instructor code
 export const getMyCourses = async (req: Request, res: Response) => {
   try {
-    // Get the ID 
+    // Get the ID
     const instructorId = (req as any).user.userId;
 
-    const courses = await courseService.getInstructorCoursesService(instructorId);
+    const courses =
+      await courseService.getInstructorCoursesService(instructorId);
 
     // Return the data
     return res.status(200).json({

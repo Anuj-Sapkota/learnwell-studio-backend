@@ -4,6 +4,7 @@ import cors from "cors";
 import config from "./config/config.js";
 import authRouter from "./routes/auth.routes.js";
 import courseRouter from "./routes/courses.routes.js"
+import { globalErrorHandler } from "./middleware/error.middleware.js";
 
 const app = express();
 
@@ -29,6 +30,9 @@ app.use("/api/auth", authRouter);
 // Courses
 app.use("/api/course", courseRouter);
 
+
+// global error handler
+app.use(globalErrorHandler);
 app.listen(Number(port), host, () => {
   console.log(`Server running at http://${host}:${port}...`);
 });

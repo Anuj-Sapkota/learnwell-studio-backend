@@ -6,11 +6,11 @@ export const createCourseSchema = z.object({
     title: z.string().min(3, "Title must be at least 3 chars"),
     shortDescription: z.string().min(10, "Summary is too short"),
     description: z.string().trim().nullable().default(null),
-    price: z.number().nonnegative("Price cannot be negative"),
+    price: z.coerce.number().nonnegative("Price cannot be negative"),
     category: z.string(),
     //stats
-    lectureCount: z.number().int().nonnegative().default(0),
-    notesCount: z.number().int().nonnegative().default(0),
+    lectureCount: z.coerce.number().int().nonnegative().default(0),
+    notesCount: z.coerce.number().int().nonnegative().default(0),
     //Duration with regex
     duration: z
       .string()
@@ -21,7 +21,7 @@ export const createCourseSchema = z.object({
 
 export const addSectionSchema = z.object({
   params: z.object({
-    courseId: z.string().uuid("Invalid Course ID format"), // Or .regex() for MongoDB
+    courseId: z.string().uuid("Invalid Course ID format"), 
   }),
   body: z.object({
     title: z.string().min(1, "Section title is required"),
