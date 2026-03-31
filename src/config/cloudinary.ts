@@ -60,6 +60,18 @@ const mixedStorage = new CloudinaryStorage({
   },
 });
 
+// Storage for Documents (PDF, PPT, code files)
+const documentStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (req, file) => ({
+    resource_type: "raw",
+    folder: "learnwell/documents",
+    allowed_formats: ["pdf", "ppt", "pptx", "doc", "docx", "zip", "txt", "js", "ts", "py"],
+    public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`,
+  }),
+});
+
 export const uploadImage = multer({ storage: imageStorage });
 export const uploadVideo = multer({ storage: videoStorage });
 export const uploadMixed = multer({ storage: mixedStorage });
+export const uploadDocument = multer({ storage: documentStorage });

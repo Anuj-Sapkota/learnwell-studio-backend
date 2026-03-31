@@ -3,11 +3,18 @@ import {
   addLesson,
   addSection,
   createCourse,
+  deleteCourse,
+  deleteLesson,
+  deleteSection,
   getCourseDetail,
   getCoursePreview,
   getCourses,
   getMyCourses,
   getMyEnrolledCourses,
+  updateCourse,
+  updateLesson,
+  updateSection,
+  uploadLessonDocument,
 } from "../controllers/course.controller.js";
 import { protect, authorize } from "../middleware/auth.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
@@ -17,9 +24,12 @@ import {
   courseIdParamSchema,
   createLessonSchema,
   enrollInCourseSchema,
-  // createLessonSchema
+  updateSectionSchema,
+  updateLessonSchema,
+  lessonIdParamSchema,
+  sectionIdParamSchema,
 } from "../schemas/course.schema.js";
-import { uploadImage, uploadMixed, uploadVideo } from "../config/cloudinary.js";
+import { uploadDocument, uploadImage, uploadMixed, uploadVideo } from "../config/cloudinary.js";
 import { enrollInCourse, getCoursePlayer } from "../controllers/enrollment.controller.js";
 
 const router = express.Router();
@@ -27,14 +37,11 @@ const router = express.Router();
 // --- PUBLIC ROUTES ---
 router.get("/", getCourses);
 
-// Course preview, before buying
-router.get(
-  "/preview/:courseId",
-  validate(courseIdParamSchema),
-  getCoursePreview,
-);
+// Course preview (before buying)
+router.get("/preview/:courseId", validate(courseIdParamSchema), getCoursePreview);
 
-// --- INSTRUCTOR/ADMIN ROUTES ---
+// --- INSTRUCTOR ROUTES ---
+
 // Create Course
 router.post(
   "/",
@@ -45,9 +52,30 @@ router.post(
   createCourse,
 );
 
+// Get instructor's own courses
 router.get("/my-courses", protect, authorize("INSTRUCTOR"), getMyCourses);
 
-// Add Section: Validate courseId in params and title in body
+// Update Course (metadata + optional thumbnail)
+router.patch(
+  "/:courseId",
+  protect,
+  authorize("INSTRUCTOR"),
+  uploadImage.single("thumbnail"),
+  updateCourse,
+);
+
+// Delete Course
+router.delete(
+  "/:courseId",
+  protect,
+  authorize("INSTRUCTOR", "ADMIN"),
+  validate(courseIdParamSchema),
+  deleteCourse,
+);
+
+// --- SECTION ROUTES ---
+
+// Add Section
 router.post(
   "/:courseId/sections",
   protect,
@@ -56,7 +84,27 @@ router.post(
   addSection,
 );
 
-// Add Lesson
+// Update Section (title / order)
+router.patch(
+  "/sections/:sectionId",
+  protect,
+  authorize("INSTRUCTOR"),
+  validate(updateSectionSchema),
+  updateSection,
+);
+
+// Delete Section
+router.delete(
+  "/sections/:sectionId",
+  protect,
+  authorize("INSTRUCTOR"),
+  validate(sectionIdParamSchema),
+  deleteSection,
+);
+
+// --- LESSON ROUTES ---
+
+// Add Lesson (with optional video upload)
 router.post(
   "/sections/:sectionId/lessons",
   protect,
@@ -66,31 +114,47 @@ router.post(
   addLesson,
 );
 
-// get course details in depth
-router.get(
-  "/:courseId/full",
+// Update Lesson (title, content, order, or replace video)
+router.patch(
+  "/lessons/:lessonId",
   protect,
-  validate(courseIdParamSchema),
-  getCourseDetail,
+  authorize("INSTRUCTOR"),
+  uploadMixed.single("file"),
+  validate(updateLessonSchema),
+  updateLesson,
 );
 
-//enroll in course
+// Upload / replace PDF document on a lesson
 router.post(
-  "/:courseId/enroll",
+  "/lessons/:lessonId/document",
   protect,
-  validate(enrollInCourseSchema),
-  enrollInCourse,
+  authorize("INSTRUCTOR"),
+  uploadDocument.single("document"),
+  validate(lessonIdParamSchema),
+  uploadLessonDocument,
 );
 
-// Student Dashboard
+// Delete Lesson
+router.delete(
+  "/lessons/:lessonId",
+  protect,
+  authorize("INSTRUCTOR"),
+  validate(lessonIdParamSchema),
+  deleteLesson,
+);
+
+// --- STUDENT / SHARED ROUTES ---
+
+// Full course detail (authenticated)
+router.get("/:courseId/full", protect, validate(courseIdParamSchema), getCourseDetail);
+
+// Enroll in course
+router.post("/:courseId/enroll", protect, validate(enrollInCourseSchema), enrollInCourse);
+
+// Student dashboard — enrolled courses
 router.get("/enrolled/me", protect, getMyEnrolledCourses);
 
-// The Course Player
-router.get(
-  "/:courseId/player",
-  protect,
-  validate(courseIdParamSchema),
-  getCoursePlayer,
-);
+// Course player (enrolled students only)
+router.get("/:courseId/player", protect, validate(courseIdParamSchema), getCoursePlayer);
 
 export default router;

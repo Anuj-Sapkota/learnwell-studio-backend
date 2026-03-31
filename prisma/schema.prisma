@@ -53,6 +53,9 @@ model Course {
   description     String?
   thumbnail       String?
   price           Float        @default(0)
+  discount        Float        @default(0)   // percentage discount e.g. 20 = 20%
+  isFree          Boolean      @default(false)
+  accessDuration  Int?                        // days; null = lifetime access
   category        String?
   level           String       @default("BEGINNER")
   totalDuration   Int          @default(0)

@@ -2,7 +2,14 @@ import type { NextFunction, Request, Response } from "express";
 import { getStudentEnrollments } from "../services/enrollment.service.js"
 import type { CreateCourseInput } from "../schemas/course.schema.js";
 import { v2 as cloudinary } from "cloudinary";
-import { createCourseService, createLessonService, createSectionService, getAllCoursesService, getCourseDetailService, getCoursePreviewService, getInstructorCoursesService, getSectionById, updateCourseTotalDuration } from "../services/course.service.js";
+import {
+  createCourseService, createLessonService, createSectionService,
+  getAllCoursesService, getCourseDetailService, getCoursePreviewService,
+  getInstructorCoursesService, getSectionById, updateCourseService,
+  updateCourseTotalDuration, deleteCourseService,
+  deleteSectionService, updateSectionService,
+  updateLessonService, deleteLessonService,
+} from "../services/course.service.js";
 
 interface ProtectedRequest extends Request {
   user: {
@@ -183,6 +190,136 @@ export const getMyEnrolledCourses = async (req: Request, res: Response, next: Ne
 
     res.status(200).json({ success: true, data: courses });
   } catch (error) {
+    next(error);
+  }
+};
+
+export const updateCourse = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { courseId } = req.params;
+    const updateBody = { ...req.body };
+
+    // 1. Handle File Upload (Cloudinary URL provided by Multer)
+    if (req.file) {
+      // 'path' is the Cloudinary URL when using multer-storage-cloudinary
+      updateBody.thumbnail = req.file.path;
+    }
+
+    // 2. Delegate to Service
+    const updatedCourse = await updateCourseService(courseId, updateBody);
+
+    // 3. Return Response
+    res.status(200).json({ 
+      success: true, 
+      message: "Course updated successfully",
+      data: updatedCourse 
+    });
+  } catch (error) {
+    // Passes Prisma errors (like P2025: Record not found) to error middleware
+    next(error);
+  }
+};
+
+export const deleteCourse = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { courseId } = req.params;
+    const instructorId = (req as ProtectedRequest).user.userId;
+
+    await deleteCourseService(courseId, instructorId);
+
+    res.status(200).json({ success: true, message: "Course deleted successfully" });
+  } catch (error: any) {
+    if (error.message === "Forbidden") {
+      return res.status(403).json({ success: false, message: "You are not allowed to delete this course" });
+    }
+    next(error);
+  }
+};
+
+// Update Section (title / order)
+export const updateSection = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { sectionId } = req.params;
+    const instructorId = (req as ProtectedRequest).user.userId;
+    const section = await updateSectionService(sectionId, instructorId, req.body);
+    res.status(200).json({ success: true, data: section });
+  } catch (error: any) {
+    if (error.message === "Forbidden") return res.status(403).json({ success: false, message: "Forbidden" });
+    next(error);
+  }
+};
+
+// Delete Section
+export const deleteSection = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { sectionId } = req.params;
+    const instructorId = (req as ProtectedRequest).user.userId;
+    await deleteSectionService(sectionId, instructorId);
+    res.status(200).json({ success: true, message: "Section deleted successfully" });
+  } catch (error: any) {
+    if (error.message === "Forbidden") return res.status(403).json({ success: false, message: "Forbidden" });
+    next(error);
+  }
+};
+
+// Update Lesson (title, content, order, or replace video/pdf)
+export const updateLesson = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { lessonId } = req.params;
+    const instructorId = (req as ProtectedRequest).user.userId;
+    const updateData: any = { ...req.body };
+
+    // Handle file replacement
+    if (req.file) {
+      const isVideo = req.file.mimetype.startsWith("video");
+      if (isVideo) {
+        updateData.videoUrl = (req.file as any).path;
+        // Fetch duration from Cloudinary
+        const result = await cloudinary.api.resource(req.file.filename, {
+          resource_type: "video",
+        });
+        updateData.duration = Math.round(result.duration || 0);
+      } else {
+        updateData.pdfUrl = (req.file as any).path;
+      }
+    }
+
+    const lesson = await updateLessonService(lessonId, instructorId, updateData);
+    res.status(200).json({ success: true, data: lesson });
+  } catch (error: any) {
+    if (error.message === "Forbidden") return res.status(403).json({ success: false, message: "Forbidden" });
+    next(error);
+  }
+};
+
+// Delete Lesson
+export const deleteLesson = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { lessonId } = req.params;
+    const instructorId = (req as ProtectedRequest).user.userId;
+    await deleteLessonService(lessonId, instructorId);
+    res.status(200).json({ success: true, message: "Lesson deleted successfully" });
+  } catch (error: any) {
+    if (error.message === "Forbidden") return res.status(403).json({ success: false, message: "Forbidden" });
+    next(error);
+  }
+};
+
+// Upload PDF/document to an existing lesson
+export const uploadLessonDocument = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { lessonId } = req.params;
+    const instructorId = (req as ProtectedRequest).user.userId;
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No document file provided" });
+    }
+
+    const pdfUrl = (req.file as any).path;
+    const lesson = await updateLessonService(lessonId, instructorId, { pdfUrl });
+    res.status(200).json({ success: true, data: lesson });
+  } catch (error: any) {
+    if (error.message === "Forbidden") return res.status(403).json({ success: false, message: "Forbidden" });
     next(error);
   }
 };

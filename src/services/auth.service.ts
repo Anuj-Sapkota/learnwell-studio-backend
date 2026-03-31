@@ -76,14 +76,18 @@ export const login = async ({
   deviceType,
 }: any) => {
   // 1. Find the user
+
   const user = await prisma.user.findUnique({ where: { email } });
+
+  console.log("User: ", user);
   if (!user) {
     throw new ServiceError("Invalid email or password", 401);
   }
 
   // 2. Check Password
   const isPasswordValid = await verifyPassword(password, user.password_hash!);
-
+console.log("Password check: ", isPasswordValid)
+  
   if (!isPasswordValid) {
     throw new ServiceError("Invalid email or password", 401);
   }

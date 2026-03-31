@@ -17,7 +17,7 @@ app.use(
     // Replace the wildcard "*" with the specific frontend URL
     origin: "http://localhost:8080",
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
