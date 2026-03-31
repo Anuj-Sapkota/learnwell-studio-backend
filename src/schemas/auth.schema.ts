@@ -13,7 +13,7 @@ export const registerSchema = z.object({
       .min(8, "Password must be at least 8 characters")
       .regex(/[A-Z]/, "Must contain at least one uppercase letter")
       .regex(/[0-9]/, "Must contain at least one number"),
-    deviceType: z.enum(["Mobile", "Desktop", "Tablet"]).optional().default("Desktop"),
+    // deviceType: z.enum(["Mobile", "Desktop", "Tablet"]).optional().default("Desktop"),
   }),
 });
 

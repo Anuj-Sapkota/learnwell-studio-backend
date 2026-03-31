@@ -6,6 +6,7 @@ interface ValidatableSchema {
   parseAsync: (data: any) => Promise<any>;
 }
 
+
 export const validate =
   (schema: ValidatableSchema) =>
   async (req: Request, res: Response, next: NextFunction) => {
@@ -16,7 +17,7 @@ export const validate =
         query: req.query,
         params: req.params,
       });
-
+      console.log("parsed: ", parsed)
       if (parsed.body) {
         req.body = Object.assign(req.body || {}, parsed.body);
       }
@@ -33,6 +34,7 @@ export const validate =
 
       return next();
     } catch (error) {
+      console.log("Error:", error)
       next(error);
     }
   };

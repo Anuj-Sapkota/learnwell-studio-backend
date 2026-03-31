@@ -27,15 +27,15 @@ export const registerUser = async (
     const userAgent = req.get("User-Agent") || "unknown";
 
     // 3. Call the service
-    const { user, accessToken, refreshToken } = await register({
+    const { accessToken, refreshToken } = await register({
       ...validatedData,
       ip,
       userAgent,
     });
-
+    
     // 4. Security layers & Response
     setRefreshCookie(res, refreshToken);
-    return res.status(201).json(formatAuthResponse(user, accessToken));
+    return res.status(201).json(formatAuthResponse(accessToken));
   } catch (error: any) {
     next(error);
   }
@@ -100,7 +100,7 @@ export const googleLogin = async (
     // Set cookie and respond
     setRefreshCookie(res, refreshToken);
 
-    return res.status(200).json(formatAuthResponse(user, accessToken));
+    return res.status(200).json(formatAuthResponse(accessToken));
   } catch (error: any) {
     console.error("Google Auth Error:", error);
     next(error);
