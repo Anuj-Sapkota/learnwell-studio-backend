@@ -70,7 +70,10 @@ export const getCourseFullContentService = async (courseId: string) => {
               id: true,
               title: true,
               content: true,
-              videoUrl: true, 
+              videoUrl: true,
+              videoName: true,
+              pdfUrl: true,
+              documentName: true,
               duration: true,
             }
           }
@@ -78,4 +81,30 @@ export const getCourseFullContentService = async (courseId: string) => {
       }
     }
   });
+};
+
+// Fetch a lesson's document URL and verify it exists — used by the document proxy
+export const getLessonDocumentService = async (lessonId: string) => {
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    select: {
+      pdfUrl: true,
+      title: true,
+      section: {
+        select: { courseId: true },
+      },
+    },
+  });
+
+  if (!lesson || !lesson.pdfUrl) {
+    const err: any = new Error("Document not found");
+    err.status = 404;
+    throw err;
+  }
+
+  return {
+    pdfUrl: lesson.pdfUrl,
+    title: lesson.title,
+    courseId: lesson.section.courseId,
+  };
 };

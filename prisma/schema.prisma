@@ -82,15 +82,17 @@ model Section {
 }
 
 model Lesson {
-  id        String  @id @default(uuid())
-  title     String
-  content   String?
-  videoUrl  String?
-  pdfUrl    String?
-  duration  Int @default(0)
-  order     Int     @default(0)
-  sectionId String
-  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  id           String  @id @default(uuid())
+  title        String
+  content      String?
+  videoUrl     String?
+  videoName    String?  // original filename of the uploaded video
+  pdfUrl       String?
+  documentName String?  // original filename of the uploaded document
+  duration     Int     @default(0)
+  order        Int     @default(0)
+  sectionId    String
+  section      Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 }
 
 model Enrollment {

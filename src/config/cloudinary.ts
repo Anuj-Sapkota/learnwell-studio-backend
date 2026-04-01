@@ -60,16 +60,19 @@ const mixedStorage = new CloudinaryStorage({
   },
 });
 
-// Storage for Documents (PDF, PPT, code files)
+// Storage for Documents (PDF, PPT, etc.)
+// Using resource_type "image" for PDFs — Cloudinary supports PDF under image type
+// and free accounts can deliver image-type resources without restrictions.
 const documentStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: async (req, file) => ({
-    resource_type: "raw",
+  params: async (_req, _file) => ({
+    resource_type: "image",
     folder: "learnwell/documents",
-    allowed_formats: ["pdf", "ppt", "pptx", "doc", "docx", "zip", "txt", "js", "ts", "py"],
-    public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`,
+    allowed_formats: ["pdf"],
+    format: "pdf",
   }),
 });
+
 
 export const uploadImage = multer({ storage: imageStorage });
 export const uploadVideo = multer({ storage: videoStorage });

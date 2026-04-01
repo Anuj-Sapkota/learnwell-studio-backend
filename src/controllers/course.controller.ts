@@ -8,7 +8,7 @@ import {
   getInstructorCoursesService, getSectionById, updateCourseService,
   updateCourseTotalDuration, deleteCourseService,
   deleteSectionService, updateSectionService,
-  updateLessonService, deleteLessonService,
+  updateLessonService, deleteLessonService, syncLessonDurationsService,
 } from "../services/course.service.js";
 
 interface ProtectedRequest extends Request {
@@ -18,27 +18,23 @@ interface ProtectedRequest extends Request {
   };
 }
 
-export const createCourse = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const createCourse = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const instructorId = (req as ProtectedRequest).user.userId;
-
-    console.log("This is instructor id:", instructorId);
-
     const validatedData = req.body as CreateCourseInput;
 
     const course = await createCourseService({
       ...validatedData,
-      price: Number(validatedData.price), // as formdata sends string
+      price: Number(validatedData.price),
+      discount: Number(validatedData.discount ?? 0),
+      isFree: validatedData.isFree === true || (validatedData.isFree as any) === "true",
+      accessDuration: validatedData.accessDuration ? Number(validatedData.accessDuration) : null,
+      thumbnail: req.file ? (req.file as any).path : undefined,
       instructorId,
     });
 
     res.status(201).json({ success: true, data: course });
   } catch (error: any) {
-    // res.status(500).json({ success: false, message: error.message });
     next(error);
   }
 };
@@ -64,24 +60,12 @@ export const addSection = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-// Add Lesson
 export const addLesson = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { sectionId } = req.params;
-    const { title, content } = req.body; // validation apply later------
+    const { title, content } = req.body;
 
     const videoUrl = req.file ? (req.file as any).path : null;
-    const publicId = req.file?.filename;
-
-    //fetching the result for duration
-    const result = await cloudinary.api.resource(publicId, {
-      resource_type: "video",
-      image_metadata: true,
-    });
-
-    const duration = Math.round(result.duration || 0);
-
-    console.log("Duration of the uploaded file in lesson: ", result);
 
     if (!videoUrl && !content) {
       return res.status(400).json({
@@ -90,24 +74,42 @@ export const addLesson = async (req: Request, res: Response, next: NextFunction)
       });
     }
 
+    let duration = 0;
+
+    if (req.file) {
+      // multer-storage-cloudinary exposes public_id directly on the file object
+      const publicId = (req.file as any).public_id 
+        ?? (req.file as any).filename?.replace(/\.[^/.]+$/, "");
+
+      console.log("Cloudinary public_id:", publicId);
+      console.log("req.file keys:", Object.keys(req.file));
+
+      try {
+        const result = await cloudinary.api.resource(publicId, { resource_type: "video" });
+        duration = Math.round(result.duration || 0);
+        console.log("Fetched duration:", duration);
+      } catch (err) {
+        console.error("Cloudinary duration fetch failed:", err);
+      }
+    }
+
     const lesson = await createLessonService({
       title,
       content,
       videoUrl,
+      videoName: req.file ? req.file.originalname : undefined,
       duration,
       sectionId,
     });
 
-    //fetch section by id
     const section = await getSectionById(sectionId);
-
     if (section?.courseId) {
       await updateCourseTotalDuration(section.courseId);
     }
 
     res.status(201).json({ success: true, data: lesson });
   } catch (error: any) {
-    next(error)
+    next(error);
   }
 };
 
@@ -316,8 +318,22 @@ export const uploadLessonDocument = async (req: Request, res: Response, next: Ne
     }
 
     const pdfUrl = (req.file as any).path;
-    const lesson = await updateLessonService(lessonId, instructorId, { pdfUrl });
+    const documentName = req.file.originalname;
+    const lesson = await updateLessonService(lessonId, instructorId, { pdfUrl, documentName });
     res.status(200).json({ success: true, data: lesson });
+  } catch (error: any) {
+    if (error.message === "Forbidden") return res.status(403).json({ success: false, message: "Forbidden" });
+    next(error);
+  }
+};
+
+// Sync durations for existing lessons that have duration = 0
+export const syncLessonDurations = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { courseId } = req.params;
+    const instructorId = (req as ProtectedRequest).user.userId;
+    const result = await syncLessonDurationsService(courseId, instructorId);
+    res.status(200).json({ success: true, message: `Synced ${result.updated} lesson(s)` });
   } catch (error: any) {
     if (error.message === "Forbidden") return res.status(403).json({ success: false, message: "Forbidden" });
     next(error);

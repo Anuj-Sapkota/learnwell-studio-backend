@@ -6,15 +6,31 @@ export const createCourseService = async (data: {
   description?: string | null;
   shortDescription: string;
   price: number;
+  discount?: number;
+  isFree?: boolean;
+  accessDuration?: number | null;
+  thumbnail?: string;
   instructorId: string;
   category: string;
+  level?: string;
   totalDuration?: number;
   lectureCount?: number;
   notesCount?: number;
 }) => {
   return await prisma.course.create({
     data: {
-      ...data,
+      title: data.title,
+      shortDescription: data.shortDescription,
+      description: data.description ?? null,
+      price: data.isFree ? 0 : data.price,
+      discount: data.discount ?? 0,
+      isFree: data.isFree ?? false,
+      accessDuration: data.accessDuration ?? null,
+      thumbnail: data.thumbnail ?? null,
+      instructorId: data.instructorId,
+      category: data.category,
+      level: data.level ?? "BEGINNER",
+      totalDuration: data.totalDuration ?? 0,
       lectureCount: data.lectureCount ?? 0,
       notesCount: data.notesCount ?? 0,
     },
@@ -47,6 +63,7 @@ export const createLessonService = async (data: {
   title: string;
   sectionId: string;
   videoUrl?: string;
+  videoName?: string;
   duration?: any;
   content?: string;
 }) => {
@@ -55,7 +72,8 @@ export const createLessonService = async (data: {
       title: data.title,
       sectionId: data.sectionId,
       videoUrl: data.videoUrl ?? "",
-      duration: 0,
+      videoName: data.videoName ?? null,
+      duration: data.duration ?? 0,
       content: data.content ?? "",
     },
   });
@@ -288,11 +306,11 @@ export const updateSectionService = async (
   return await prisma.section.update({ where: { id: sectionId }, data });
 };
 
-// Update a lesson (title, content, order, videoUrl, pdfUrl)
+// Update a lesson (title, content, order, videoUrl, pdfUrl, names)
 export const updateLessonService = async (
   lessonId: string,
   instructorId: string,
-  data: { title?: string; content?: string; order?: number; videoUrl?: string; pdfUrl?: string; duration?: number }
+  data: { title?: string; content?: string; order?: number; videoUrl?: string; videoName?: string; pdfUrl?: string; documentName?: string; duration?: number }
 ) => {
   const lesson = await prisma.lesson.findUnique({
     where: { id: lessonId },
@@ -341,7 +359,7 @@ export const deleteLessonService = async (lessonId: string, instructorId: string
   if (lesson.pdfUrl) {
     const pid = extractPublicId(lesson.pdfUrl);
     if (pid) deletions.push(
-      cloudinary.api.delete_resources([pid], { resource_type: "raw" }).catch(console.error)
+      cloudinary.api.delete_resources([pid], { resource_type: "image" }).catch(console.error)
     );
   }
   await Promise.all(deletions);
@@ -358,33 +376,75 @@ interface UpdateCourseData {
   description?: string;
   thumbnail?: string;
   price?: number | string;
+  discount?: number | string;
+  isFree?: boolean | string;
+  accessDuration?: number | string | null;
   category?: string;
   level?: string;
 }
 
-/**
- * Updates course metadata and handles type casting for numeric fields
- */
-export const updateCourseService = async (
-  courseId: string,
-  data: UpdateCourseData,
-) => {
-  // 1. Prepare data for Prisma
+export const updateCourseService = async (courseId: string, data: UpdateCourseData) => {
   const updatePayload: any = { ...data };
 
-  // 2. Handle numeric conversion (FormData sends everything as strings)
-  if (data.price !== undefined) {
-    updatePayload.price = Number(data.price);
+  if (data.price !== undefined) updatePayload.price = Number(data.price);
+  if (data.discount !== undefined) updatePayload.discount = Number(data.discount);
+  if (data.isFree !== undefined) updatePayload.isFree = data.isFree === "true" || data.isFree === true;
+  if (data.accessDuration !== undefined) {
+    updatePayload.accessDuration = data.accessDuration === "" || data.accessDuration === null
+      ? null
+      : Number(data.accessDuration);
   }
 
-  // 3. Execute Update
   return await prisma.course.update({
     where: { id: courseId },
     data: updatePayload,
+    include: { instructor: { select: { fullName: true } } },
+  });
+};
+
+// Sync lesson durations from Cloudinary for lessons that have duration = 0
+export const syncLessonDurationsService = async (courseId: string, instructorId: string) => {
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
     include: {
-      instructor: {
-        select: { fullName: true },
+      sections: {
+        include: { lessons: { select: { id: true, videoUrl: true, duration: true } } },
       },
     },
   });
+
+  if (!course) throw new Error("Course not found");
+  if (course.instructorId !== instructorId) throw new Error("Forbidden");
+
+  const extractPublicId = (url: string) => {
+    try {
+      const uploadIndex = url.indexOf("/upload/");
+      if (uploadIndex === -1) return null;
+      const afterUpload = url.slice(uploadIndex + 8);
+      const withoutVersion = afterUpload.replace(/^v\d+\//, "");
+      return withoutVersion.replace(/\.[^/.]+$/, "");
+    } catch { return null; }
+  };
+
+  let updated = 0;
+  for (const section of course.sections) {
+    for (const lesson of section.lessons) {
+      if (!lesson.videoUrl || lesson.duration > 0) continue;
+      const publicId = extractPublicId(lesson.videoUrl);
+      if (!publicId) continue;
+      try {
+        const result = await cloudinary.api.resource(publicId, { resource_type: "video" });
+        const duration = Math.round(result.duration || 0);
+        if (duration > 0) {
+          await prisma.lesson.update({ where: { id: lesson.id }, data: { duration } });
+          updated++;
+        }
+      } catch (err) {
+        console.error(`Failed to fetch duration for lesson ${lesson.id}:`, err);
+      }
+    }
+  }
+
+  await updateCourseTotalDuration(courseId);
+  return { updated };
 };

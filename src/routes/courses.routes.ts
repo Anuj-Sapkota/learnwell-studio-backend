@@ -11,6 +11,7 @@ import {
   getCourses,
   getMyCourses,
   getMyEnrolledCourses,
+  syncLessonDurations,
   updateCourse,
   updateLesson,
   updateSection,
@@ -30,7 +31,7 @@ import {
   sectionIdParamSchema,
 } from "../schemas/course.schema.js";
 import { uploadDocument, uploadImage, uploadMixed, uploadVideo } from "../config/cloudinary.js";
-import { enrollInCourse, getCoursePlayer } from "../controllers/enrollment.controller.js";
+import { enrollInCourse, getCoursePlayer, proxyLessonDocument } from "../controllers/enrollment.controller.js";
 
 const router = express.Router();
 
@@ -154,7 +155,20 @@ router.post("/:courseId/enroll", protect, validate(enrollInCourseSchema), enroll
 // Student dashboard — enrolled courses
 router.get("/enrolled/me", protect, getMyEnrolledCourses);
 
+// Sync lesson durations from Cloudinary (fixes lessons with duration = 0)
+router.post(
+  "/:courseId/sync-durations",
+  protect,
+  authorize("INSTRUCTOR"),
+  validate(courseIdParamSchema),
+  syncLessonDurations,
+);
+
 // Course player (enrolled students only)
 router.get("/:courseId/player", protect, validate(courseIdParamSchema), getCoursePlayer);
+
+// Document proxy — streams Cloudinary raw files through the backend to avoid 401s
+// protect middleware accepts token from header OR ?token= query param (needed for iframe src)
+router.get("/lessons/:lessonId/document-proxy", protect, proxyLessonDocument);
 
 export default router;
