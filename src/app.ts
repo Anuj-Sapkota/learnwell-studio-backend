@@ -14,13 +14,25 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    // Replace the wildcard "*" with the specific frontend URL
-    origin: "http://localhost:8080",
+    origin: (origin, callback) => {
+      const allowed = [
+        "http://localhost:8080",
+        "http://localhost:5173",
+        "https://zona-multijugate-cherie.ngrok-free.dev"
+      ];
+      // Allow any ngrok tunnel or no origin (Postman, mobile, etc.)
+      if (!origin || allowed.includes(origin) || origin.endsWith(".ngrok-free.app") || origin.endsWith(".ngrok-free.dev")) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked: ${origin}`));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "ngrok-skip-browser-warning"],
   }),
 );
+
 
 app.use(express.json());
 

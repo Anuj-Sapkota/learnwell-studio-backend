@@ -9,7 +9,10 @@ export const createCourseSchema = z.object({
     price: z.coerce.number().nonnegative("Price cannot be negative").default(0),
     discount: z.coerce.number().min(0).max(100, "Discount must be between 0-100").default(0),
     isFree: z.coerce.boolean().default(false),
-    accessDuration: z.coerce.number().int().positive().nullable().default(null), // days; null = lifetime
+    accessDuration: z.preprocess(
+      (val) => (val === "" || val === null || val === undefined ? null : Number(val)),
+      z.number().int().positive().nullable()
+    ).default(null), // days; null = lifetime
     category: z.string(),
     level: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]).default("BEGINNER"),
     // stats
