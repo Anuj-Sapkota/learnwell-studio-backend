@@ -6,6 +6,8 @@ import {
   logoutUser,
   refreshAccessToken,
   registerUser,
+  forgotPassword,
+  resetPassword,
 } from "../controllers/auth.controller.js";
 import { validate } from "../middleware/validate.middleware.js";
 import { loginSchema, registerSchema } from "../schemas/auth.schema.js";
@@ -61,5 +63,11 @@ route.post("/google", googleLogin);
 
 // get me route which runs after login
 route.get("/me", protect, getMe);
+
+
+// --- Password Recovery ---
+route.post("/forgot-password", forgotPassword);
+
+route.post("/reset-password/:token", resetPassword);
 
 export default route;

@@ -7,10 +7,13 @@ import {
   googleAuthService,
   refreshSession,
   getMeService,
+  generateResetToken,
+  verifyAndResetPassword,
 } from "../services/auth.service.js";
 import { setRefreshCookie } from "../utils/tokens.utils.js";
 import { formatAuthResponse } from "../helpers/format-auth-response.helper.js";
 import type { LoginInput, RegisterInput } from "../schemas/auth.schema.js";
+import { sendResetEmail } from "../utils/email.util.js";
 
 export const registerUser = async (
   req: Request,
@@ -197,5 +200,32 @@ export const refreshAccessToken = async (
     });
 
     next(error);
+  }
+};
+
+
+export const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.body;
+    const result = await generateResetToken(email);
+    await sendResetEmail(result.userEmail, result.token);
+    res.status(200).json({ success: true, message: "If an account exists, a reset link has been sent." });
+  } catch (err: any) {
+    // User not found — still return 200 to avoid email enumeration
+    if (err?.statusCode === 200) {
+      return res.status(200).json({ success: true, message: err.message });
+    }
+    next(err);
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+    await verifyAndResetPassword(String(token), password);
+    res.status(200).json({ success: true, message: "Password reset successful" });
+  } catch (err) {
+    next(err);
   }
 };

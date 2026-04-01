@@ -2,6 +2,7 @@ import { ServiceError } from "../errors/service.error.js";
 import { hashPassword, verifyPassword } from "../utils/password.util.js";
 import { prisma } from "../lib/prisma.js";
 import { generateTokens } from "../utils/tokens.utils.js";
+import jwt from "jsonwebtoken";
 import type { User } from "@prisma/client";
 import config from "../config/config.js";
 import { OAuth2Client } from "google-auth-library";
@@ -13,192 +14,135 @@ interface RegisterInputProps {
   password: string;
   ip: string;
   userAgent: string;
-  deviceType: string;
+  deviceType?: string;
 }
 
-/**
- * Registers a user, creates a profile, and initializes a device session.
- */
 export const register = async ({
   fullName,
   email,
   password,
   ip,
   userAgent,
-  deviceType,
 }: RegisterInputProps): Promise<{
   user: User;
   accessToken: string;
   refreshToken: string;
 }> => {
-  // if user exists
   const userExists = await prisma.user.findUnique({ where: { email } });
-  if (userExists) {
-    throw new ServiceError("User already exists!", 409);
-  }
+  if (userExists) throw new ServiceError("User already exists!", 409);
 
-  // 2. Database Transaction
   return await prisma.$transaction(async (tx) => {
-    // A. Create the User
     const newUser = await tx.user.create({
-      data: {
-        fullName,
-        email,
-        password_hash: await hashPassword(password),
-      },
+      data: { fullName, email, password_hash: await hashPassword(password) },
     });
 
-    // B. Create the Profile
-    await tx.profile.create({
-      data: { userId: newUser.id },
-    });
+    await tx.profile.create({ data: { userId: newUser.id } });
 
-    const { accessToken, refreshToken } = await createSession(
-      newUser,
-      ip,
-      userAgent,
-      tx,
-    );
-
+    const { accessToken, refreshToken } = await createSession(newUser, ip, userAgent, tx);
     return { user: newUser, accessToken, refreshToken };
   });
 };
 
-/**
- * Logins a user
- */
-
-export const login = async ({
-  email,
-  password,
-  ip,
-  userAgent,
-  deviceType,
-}: any) => {
-  // 1. Find the user
-
+export const login = async ({ email, password, ip, userAgent }: any) => {
   const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) throw new ServiceError("Invalid email or password", 401);
 
-  console.log("User: ", user);
-  if (!user) {
-    throw new ServiceError("Invalid email or password", 401);
-  }
-
-  // 2. Check Password
   const isPasswordValid = await verifyPassword(password, user.password_hash!);
-console.log("Password check: ", isPasswordValid)
-  
-  if (!isPasswordValid) {
-    throw new ServiceError("Invalid email or password", 401);
-  }
+  if (!isPasswordValid) throw new ServiceError("Invalid email or password", 401);
 
-  // 3. Generate Tokens
-  const { accessToken, refreshToken } = await createSession(
-    user,
-    ip,
-    userAgent,
-  );
-
+  const { accessToken, refreshToken } = await createSession(user, ip, userAgent);
   return { user, accessToken, refreshToken };
 };
 
 const client = new OAuth2Client(config.google.clientId);
 
-export const googleAuthService = async (
-  idToken: string,
-  ip: string,
-  userAgent: string,
-) => {
-  // 1. Verify the token with Google
+export const googleAuthService = async (idToken: string, ip: string, userAgent: string) => {
   const ticket = await client.verifyIdToken({
     idToken,
     audience: config.google.clientId!,
   });
 
   const payload = ticket.getPayload();
-  if (!payload || !payload.email) {
-    throw { status: 400, message: "Invalid Google Account" };
-  }
+  if (!payload || !payload.email) throw { status: 400, message: "Invalid Google Account" };
 
   const { email, name } = payload;
 
-  // 2. Find or Create the user
   let user = await prisma.user.findUnique({ where: { email } });
-
   if (!user) {
     user = await prisma.user.create({
-      data: {
-        email,
-        fullName: name || "Google User",
-        // password remains null for Google users
-      },
+      data: { email, fullName: name || "Google User" },
     });
   }
 
-  // 3. Create Session & Tokens
-  const { accessToken, refreshToken } = await createSession(
-    user,
-    ip,
-    userAgent,
-  );
-
+  const { accessToken, refreshToken } = await createSession(user, ip, userAgent);
   return { user, accessToken, refreshToken };
 };
 
-// get me route to get the logged in user's data
 export const getMeService = async (userId: string) => {
-  const user = await prisma.user.findUnique({
+  return await prisma.user.findUnique({
     where: { id: userId },
-    select: {
-      id: true,
-      fullName: true,
-      email: true,
-      role: true,
-      createdAt: true,
-    },
+    select: { id: true, fullName: true, email: true, role: true, createdAt: true },
   });
-
-  return user;
 };
 
-/**
- * Deletes the session from the database so the refresh token
- * cannot be used to generate new access tokens.
- */
 export const logout = async (refreshToken: string) => {
   if (!refreshToken) return;
-
-  // Delete the session associated with this specific refresh token
-  await prisma.deviceSession.deleteMany({
-    where: {
-      token: refreshToken,
-    },
-  });
+  await prisma.deviceSession.deleteMany({ where: { token: refreshToken } });
 };
 
-/**
- * Checks if refresh token exists in the database and deletes the expired token and creates a new accessToken if refresh token is not expired
- */
 export const refreshSession = async (refreshToken: string) => {
-  // 1. Check if token exists in DB
   const session = await prisma.deviceSession.findUnique({
     where: { token: refreshToken },
-    include: { user: true }, // Get user data at the same time
+    include: { user: true },
   });
 
-  if (!session) {
-    throw new ServiceError("Session not found or invalid", 401);
-  }
+  if (!session) throw new ServiceError("Session not found or invalid", 401);
 
-  // 2. Check if session is expired
   if (new Date() > session.expiresAt) {
-    // delete expired session from DB
     await prisma.deviceSession.delete({ where: { id: session.id } });
     throw new ServiceError("Session expired, please login again", 401);
   }
 
-  // 3. Generate a fresh Access Token
   const { accessToken } = generateTokens(session.user.id, session.user.role);
-
   return { accessToken };
+};
+
+export const generateResetToken = async (
+  email: string,
+): Promise<{ token: string; userEmail: string }> => {
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  // Security: don't reveal whether the email exists
+  if (!user) {
+    throw new ServiceError("If an account exists, a reset link has been sent.", 200);
+  }
+
+  // Sign a short-lived JWT — no DB storage needed
+  const token = jwt.sign(
+    { userId: user.id },
+    process.env.JWT_ACCESS_SECRET!,
+    { expiresIn: "1h" }
+  );
+
+  return { token, userEmail: user.email };
+};
+
+export const verifyAndResetPassword = async (
+  token: string,
+  newPassword: string,
+): Promise<boolean> => {
+  let payload: any;
+
+  try {
+    payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET!);
+  } catch {
+    throw new ServiceError("Invalid or expired reset token.", 400);
+  }
+
+  await prisma.user.update({
+    where: { id: payload.userId },
+    data: { password_hash: await hashPassword(newPassword) },
+  });
+
+  return true;
 };

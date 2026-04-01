@@ -35,7 +35,13 @@ const config = {
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET
-  }
+  },
+  resetLink: {
+    emailHost: process.env.EMAIL_HOST!,
+    emailPort: process.env.EMAIL_PORT!,
+    emailUser: process.env.EMAIL_USER!,
+    emailPassword: process.env.EMAIL_PASS!,
+  },
 };
 
 export default config;
