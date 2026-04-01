@@ -35,77 +35,23 @@ import { enrollInCourse, getCoursePlayer, proxyLessonDocument } from "../control
 
 const router = express.Router();
 
-// --- PUBLIC ROUTES ---
-router.get("/", getCourses);
+// -------------------------------------------------------
+// STATIC ROUTES FIRST — must come before any /:courseId
+// routes otherwise Express matches the static segment as
+// a param value (e.g. "enrolled" becomes courseId).
+// -------------------------------------------------------
 
-// Course preview (before buying)
+// Public
+router.get("/", getCourses);
 router.get("/preview/:courseId", validate(courseIdParamSchema), getCoursePreview);
 
-// --- INSTRUCTOR ROUTES ---
-
-// Create Course
-router.post(
-  "/",
-  protect,
-  authorize("INSTRUCTOR", "ADMIN"),
-  uploadImage.single("thumbnail"),
-  validate(createCourseSchema),
-  createCourse,
-);
-
-// Get instructor's own courses
+// Instructor
 router.get("/my-courses", protect, authorize("INSTRUCTOR"), getMyCourses);
 
-// Update Course (metadata + optional thumbnail)
-router.patch(
-  "/:courseId",
-  protect,
-  authorize("INSTRUCTOR"),
-  uploadImage.single("thumbnail"),
-  updateCourse,
-);
+// Student
+router.get("/enrolled/me", protect, getMyEnrolledCourses);
 
-// Delete Course
-router.delete(
-  "/:courseId",
-  protect,
-  authorize("INSTRUCTOR", "ADMIN"),
-  validate(courseIdParamSchema),
-  deleteCourse,
-);
-
-// --- SECTION ROUTES ---
-
-// Add Section
-router.post(
-  "/:courseId/sections",
-  protect,
-  authorize("INSTRUCTOR"),
-  validate(addSectionSchema),
-  addSection,
-);
-
-// Update Section (title / order)
-router.patch(
-  "/sections/:sectionId",
-  protect,
-  authorize("INSTRUCTOR"),
-  validate(updateSectionSchema),
-  updateSection,
-);
-
-// Delete Section
-router.delete(
-  "/sections/:sectionId",
-  protect,
-  authorize("INSTRUCTOR"),
-  validate(sectionIdParamSchema),
-  deleteSection,
-);
-
-// --- LESSON ROUTES ---
-
-// Add Lesson (with optional video upload)
+// Lesson sub-routes (static prefix "sections" / "lessons")
 router.post(
   "/sections/:sectionId/lessons",
   protect,
@@ -114,8 +60,20 @@ router.post(
   validate(createLessonSchema),
   addLesson,
 );
-
-// Update Lesson (title, content, order, or replace video)
+router.patch(
+  "/sections/:sectionId",
+  protect,
+  authorize("INSTRUCTOR"),
+  validate(updateSectionSchema),
+  updateSection,
+);
+router.delete(
+  "/sections/:sectionId",
+  protect,
+  authorize("INSTRUCTOR"),
+  validate(sectionIdParamSchema),
+  deleteSection,
+);
 router.patch(
   "/lessons/:lessonId",
   protect,
@@ -124,8 +82,6 @@ router.patch(
   validate(updateLessonSchema),
   updateLesson,
 );
-
-// Upload / replace PDF document on a lesson
 router.post(
   "/lessons/:lessonId/document",
   protect,
@@ -134,8 +90,6 @@ router.post(
   validate(lessonIdParamSchema),
   uploadLessonDocument,
 );
-
-// Delete Lesson
 router.delete(
   "/lessons/:lessonId",
   protect,
@@ -143,19 +97,54 @@ router.delete(
   validate(lessonIdParamSchema),
   deleteLesson,
 );
+// Document proxy (token via header or ?token= query param for iframe)
+router.get("/lessons/:lessonId/document-proxy", protect, proxyLessonDocument);
 
-// --- STUDENT / SHARED ROUTES ---
+// -------------------------------------------------------
+// DYNAMIC /:courseId ROUTES — after all static routes
+// -------------------------------------------------------
 
-// Full course detail (authenticated)
-router.get("/:courseId/full", protect, validate(courseIdParamSchema), getCourseDetail);
-
-// Enroll in course
-router.post("/:courseId/enroll", protect, validate(enrollInCourseSchema), enrollInCourse);
-
-// Student dashboard — enrolled courses
-router.get("/enrolled/me", protect, getMyEnrolledCourses);
-
-// Sync lesson durations from Cloudinary (fixes lessons with duration = 0)
+router.post(
+  "/",
+  protect,
+  authorize("INSTRUCTOR", "ADMIN"),
+  uploadImage.single("thumbnail"),
+  validate(createCourseSchema),
+  createCourse,
+);
+router.patch(
+  "/:courseId",
+  protect,
+  authorize("INSTRUCTOR"),
+  uploadImage.single("thumbnail"),
+  updateCourse,
+);
+router.delete(
+  "/:courseId",
+  protect,
+  authorize("INSTRUCTOR", "ADMIN"),
+  validate(courseIdParamSchema),
+  deleteCourse,
+);
+router.post(
+  "/:courseId/sections",
+  protect,
+  authorize("INSTRUCTOR"),
+  validate(addSectionSchema),
+  addSection,
+);
+router.get(
+  "/:courseId/full",
+  protect,
+  validate(courseIdParamSchema),
+  getCourseDetail,
+);
+router.post(
+  "/:courseId/enroll",
+  protect,
+  validate(enrollInCourseSchema),
+  enrollInCourse,
+);
 router.post(
   "/:courseId/sync-durations",
   protect,
@@ -163,12 +152,11 @@ router.post(
   validate(courseIdParamSchema),
   syncLessonDurations,
 );
-
-// Course player (enrolled students only)
-router.get("/:courseId/player", protect, validate(courseIdParamSchema), getCoursePlayer);
-
-// Document proxy — streams Cloudinary raw files through the backend to avoid 401s
-// protect middleware accepts token from header OR ?token= query param (needed for iframe src)
-router.get("/lessons/:lessonId/document-proxy", protect, proxyLessonDocument);
+router.get(
+  "/:courseId/player",
+  protect,
+  validate(courseIdParamSchema),
+  getCoursePlayer,
+);
 
 export default router;
