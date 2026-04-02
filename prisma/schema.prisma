@@ -53,10 +53,10 @@ model Course {
   description     String?
   thumbnail       String?
   price           Float        @default(0)
-  discount        Float        @default(0)   // percentage discount e.g. 20 = 20%
+  discount        Float        @default(0)
   isFree          Boolean      @default(false)
-  accessDuration  Int?                        // days; null = lifetime access
-  category        String?
+  accessDuration  Int?
+  categoryId      String?
   level           String       @default("BEGINNER")
   totalDuration   Int          @default(0)
   instructorId    String
@@ -69,8 +69,17 @@ model Course {
   videoCount      Int          @default(0)
   prerequisites   String[]     @default([])
   instructor      User         @relation(fields: [instructorId], references: [id])
+  category        Category?    @relation(fields: [categoryId], references: [id])
   enrollments     Enrollment[]
   sections        Section[]
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  courses     Course[]
 }
 
 model Section {

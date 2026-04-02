@@ -41,7 +41,11 @@ export const createCourse = async (req: Request, res: Response, next: NextFuncti
 
 export const getCourses = async (req: Request, res: Response) => {
   try {
-    const courses = await getAllCoursesService();
+    const { search, categoryId } = req.query;
+    const courses = await getAllCoursesService(
+      search as string | undefined,
+      categoryId as string | undefined,
+    );
     res.status(200).json({ success: true, data: courses });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

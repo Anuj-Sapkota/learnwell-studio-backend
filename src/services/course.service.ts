@@ -11,7 +11,7 @@ export const createCourseService = async (data: {
   accessDuration?: number | null;
   thumbnail?: string;
   instructorId: string;
-  category: string;
+  categoryId?: string;
   level?: string;
   totalDuration?: number;
   lectureCount?: number;
@@ -29,7 +29,7 @@ export const createCourseService = async (data: {
       accessDuration: data.accessDuration ?? null,
       thumbnail: data.thumbnail ?? null,
       instructorId: data.instructorId,
-      category: data.category,
+      categoryId: data.categoryId ?? null,
       level: data.level ?? "BEGINNER",
       totalDuration: data.totalDuration ?? 0,
       lectureCount: data.lectureCount ?? 0,
@@ -39,14 +39,22 @@ export const createCourseService = async (data: {
   });
 };
 
-// Fetches all the available courses
-export const getAllCoursesService = async () => {
+export const getAllCoursesService = async (search?: string, categoryId?: string) => {
   return await prisma.course.findMany({
-    include: {
-      instructor: {
-        select: { fullName: true }, // So the frontend can show the teacher's name
-      },
+    where: {
+      ...(search && {
+        OR: [
+          { title: { contains: search, mode: "insensitive" } },
+          { shortDescription: { contains: search, mode: "insensitive" } },
+        ],
+      }),
+      ...(categoryId && { categoryId }),
     },
+    include: {
+      instructor: { select: { fullName: true } },
+      category: { select: { id: true, name: true } },
+    },
+    orderBy: { createdAt: "desc" },
   });
 };
 

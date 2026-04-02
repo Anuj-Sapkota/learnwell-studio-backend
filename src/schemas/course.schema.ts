@@ -13,7 +13,7 @@ export const createCourseSchema = z.object({
       (val) => (val === "" || val === null || val === undefined ? null : Number(val)),
       z.number().int().positive().nullable()
     ).default(null), // days; null = lifetime
-    category: z.string(),
+    categoryId: z.string().uuid("Invalid category ID — pick a valid category"),
     level: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]).default("BEGINNER"),
     // stats
     videoCount: z.coerce.number().int().nonnegative().default(0),

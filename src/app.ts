@@ -3,7 +3,8 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import config from "./config/config.js";
 import authRouter from "./routes/auth.routes.js";
-import courseRouter from "./routes/courses.routes.js"
+import courseRouter from "./routes/courses.routes.js";
+import categoryRouter from "./routes/category.routes.js";
 import { globalErrorHandler } from "./middleware/error.middleware.js";
 
 const app = express();
@@ -41,6 +42,9 @@ app.use("/api/auth", authRouter);
 
 // Courses
 app.use("/api/course", courseRouter);
+
+// Categories
+app.use("/api/categories", categoryRouter);
 
 
 // global error handler
