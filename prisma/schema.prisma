@@ -67,6 +67,7 @@ model Course {
   notesCount      Int          @default(0)
   subjectCount    Int          @default(1)
   videoCount      Int          @default(0)
+  prerequisites   String[]     @default([])
   instructor      User         @relation(fields: [instructorId], references: [id])
   enrollments     Enrollment[]
   sections        Section[]

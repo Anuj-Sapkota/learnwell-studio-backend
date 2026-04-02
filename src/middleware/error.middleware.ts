@@ -15,7 +15,16 @@ export const globalErrorHandler = (
 
   // 3. Specifically handle Zod/Validation errors
   if (err.name === "ZodError" || err.issues) {
-    message = err.issues.map((issue: any) => `${issue.path.join('.')}: ${issue.message}`).join(', ');
+    const errors = err.issues.map((issue: any) => {
+      // Strip leading "body" / "params" / "query" from path
+      const path = issue.path.filter((p: any) => !["body", "params", "query"].includes(p)).join(".");
+      return path ? `${path}: ${issue.message}` : issue.message;
+    });
+    return res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors,
+    });
   }
 
   // 4. Specifically handle Multer errors (unexpected fields, etc.)

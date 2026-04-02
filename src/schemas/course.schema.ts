@@ -19,6 +19,16 @@ export const createCourseSchema = z.object({
     videoCount: z.coerce.number().int().nonnegative().default(0),
     notesCount: z.coerce.number().int().nonnegative().default(0),
     totalDuration: z.coerce.number().int().nonnegative().default(0),
+    prerequisites: z.preprocess(
+      (val) => {
+        if (Array.isArray(val)) return val;
+        if (typeof val === "string") {
+          try { return JSON.parse(val); } catch { return val.split(",").map((s) => s.trim()).filter(Boolean); }
+        }
+        return [];
+      },
+      z.array(z.string()).default([])
+    ),
   }),
 });
 

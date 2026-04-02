@@ -16,6 +16,7 @@ export const createCourseService = async (data: {
   totalDuration?: number;
   lectureCount?: number;
   notesCount?: number;
+  prerequisites?: string[];
 }) => {
   return await prisma.course.create({
     data: {
@@ -33,6 +34,7 @@ export const createCourseService = async (data: {
       totalDuration: data.totalDuration ?? 0,
       lectureCount: data.lectureCount ?? 0,
       notesCount: data.notesCount ?? 0,
+      prerequisites: data.prerequisites ?? [],
     },
   });
 };

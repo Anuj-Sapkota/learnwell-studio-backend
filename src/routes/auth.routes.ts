@@ -73,6 +73,7 @@ route.post("/reset-password/:token", resetPassword);
 
 // --- Email Verification ---
 route.get("/verify-email/:token", verifyEmail);
+
 route.post("/resend-verification", protect, resendVerification);
 
 export default route;
