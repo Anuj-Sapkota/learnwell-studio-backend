@@ -6,7 +6,11 @@ import {
   getLessonDocumentService,
 } from "../services/enrollment.service.js";
 
-export const enrollInCourse = async (req: Request, res: Response, next: NextFunction) => {
+export const enrollInCourse = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { courseId } = req.params;
     const userId = req.user!.userId;
@@ -23,7 +27,12 @@ export const enrollInCourse = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-export const getCoursePlayer = async (req: Request, res: Response, next: NextFunction) => {
+export const getCoursePlayer = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) =>{
+  
   try {
     const { courseId } = req.params;
     const userId = req.user!.userId;
@@ -32,7 +41,9 @@ export const getCoursePlayer = async (req: Request, res: Response, next: NextFun
     const course = await getCourseFullContentService(courseId);
 
     if (!course) {
-      return res.status(404).json({ success: false, message: "Course not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found" });
     }
 
     const isOwner = userRole === "INSTRUCTOR" && course.instructorId === userId;
@@ -60,13 +71,18 @@ export const getCoursePlayer = async (req: Request, res: Response, next: NextFun
  * @route GET /api/course/lessons/:lessonId/document-proxy
  * @access Private — protect middleware handles auth (supports header + query param)
  */
-export const proxyLessonDocument = async (req: Request, res: Response, next: NextFunction) => {
+export const proxyLessonDocument = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { lessonId } = req.params;
     const userId = req.user!.userId;
     const userRole = req.user!.role;
 
-    const { pdfUrl, title, courseId } = await getLessonDocumentService(lessonId);
+    const { pdfUrl, title, courseId } =
+      await getLessonDocumentService(lessonId);
 
     const isOwner = userRole === "INSTRUCTOR";
     const isAdmin = userRole === "ADMIN";
@@ -82,11 +98,21 @@ export const proxyLessonDocument = async (req: Request, res: Response, next: Nex
 
     if (!cloudinaryRes.ok) {
       const errorText = await cloudinaryRes.text();
-      console.error("Cloudinary fetch failed:", cloudinaryRes.status, errorText);
-      return res.status(502).json({ success: false, message: `Storage error: ${cloudinaryRes.status}` });
+      console.error(
+        "Cloudinary fetch failed:",
+        cloudinaryRes.status,
+        errorText,
+      );
+      return res
+        .status(502)
+        .json({
+          success: false,
+          message: `Storage error: ${cloudinaryRes.status}`,
+        });
     }
 
-    const contentType = cloudinaryRes.headers.get("content-type") || "application/octet-stream";
+    const contentType =
+      cloudinaryRes.headers.get("content-type") || "application/octet-stream";
     res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Disposition", `inline; filename="${title}"`);
     res.setHeader("Cache-Control", "private, max-age=3600");

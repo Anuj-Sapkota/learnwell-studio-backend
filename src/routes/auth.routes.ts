@@ -8,6 +8,8 @@ import {
   registerUser,
   forgotPassword,
   resetPassword,
+  verifyEmail,
+  resendVerification,
 } from "../controllers/auth.controller.js";
 import { validate } from "../middleware/validate.middleware.js";
 import { loginSchema, registerSchema } from "../schemas/auth.schema.js";
@@ -67,7 +69,10 @@ route.get("/me", protect, getMe);
 
 // --- Password Recovery ---
 route.post("/forgot-password", forgotPassword);
-
 route.post("/reset-password/:token", resetPassword);
+
+// --- Email Verification ---
+route.get("/verify-email/:token", verifyEmail);
+route.post("/resend-verification", protect, resendVerification);
 
 export default route;

@@ -17,7 +17,7 @@ import {
   updateSection,
   uploadLessonDocument,
 } from "../controllers/course.controller.js";
-import { protect, authorize } from "../middleware/auth.middleware.js";
+import { protect, authorize, requireVerified } from "../middleware/auth.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
 import {
   createCourseSchema,
@@ -55,6 +55,7 @@ router.get("/enrolled/me", protect, getMyEnrolledCourses);
 router.post(
   "/sections/:sectionId/lessons",
   protect,
+  requireVerified,
   authorize("INSTRUCTOR"),
   uploadVideo.single("video"),
   validate(createLessonSchema),
@@ -63,6 +64,7 @@ router.post(
 router.patch(
   "/sections/:sectionId",
   protect,
+  requireVerified,
   authorize("INSTRUCTOR"),
   validate(updateSectionSchema),
   updateSection,
@@ -70,6 +72,7 @@ router.patch(
 router.delete(
   "/sections/:sectionId",
   protect,
+  requireVerified,
   authorize("INSTRUCTOR"),
   validate(sectionIdParamSchema),
   deleteSection,
@@ -77,6 +80,7 @@ router.delete(
 router.patch(
   "/lessons/:lessonId",
   protect,
+  requireVerified,
   authorize("INSTRUCTOR"),
   uploadMixed.single("file"),
   validate(updateLessonSchema),
@@ -85,6 +89,7 @@ router.patch(
 router.post(
   "/lessons/:lessonId/document",
   protect,
+  requireVerified,
   authorize("INSTRUCTOR"),
   uploadDocument.single("document"),
   validate(lessonIdParamSchema),
@@ -93,6 +98,7 @@ router.post(
 router.delete(
   "/lessons/:lessonId",
   protect,
+  requireVerified,
   authorize("INSTRUCTOR"),
   validate(lessonIdParamSchema),
   deleteLesson,
@@ -107,6 +113,7 @@ router.get("/lessons/:lessonId/document-proxy", protect, proxyLessonDocument);
 router.post(
   "/",
   protect,
+  requireVerified,
   authorize("INSTRUCTOR", "ADMIN"),
   uploadImage.single("thumbnail"),
   validate(createCourseSchema),
@@ -115,6 +122,7 @@ router.post(
 router.patch(
   "/:courseId",
   protect,
+  requireVerified,
   authorize("INSTRUCTOR"),
   uploadImage.single("thumbnail"),
   updateCourse,
@@ -122,6 +130,7 @@ router.patch(
 router.delete(
   "/:courseId",
   protect,
+  requireVerified,
   authorize("INSTRUCTOR", "ADMIN"),
   validate(courseIdParamSchema),
   deleteCourse,
@@ -129,6 +138,7 @@ router.delete(
 router.post(
   "/:courseId/sections",
   protect,
+  requireVerified,
   authorize("INSTRUCTOR"),
   validate(addSectionSchema),
   addSection,
@@ -136,12 +146,14 @@ router.post(
 router.get(
   "/:courseId/full",
   protect,
+  requireVerified,
   validate(courseIdParamSchema),
   getCourseDetail,
 );
 router.post(
   "/:courseId/enroll",
   protect,
+  requireVerified,
   validate(enrollInCourseSchema),
   enrollInCourse,
 );

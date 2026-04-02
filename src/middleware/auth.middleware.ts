@@ -67,3 +67,32 @@ export const authorize = (...roles: string[]) => {
     next();
   };
 };
+
+/**
+ * REQUIRE VERIFIED: Blocks unverified users from accessing protected routes.
+ * Must be used after `protect`.
+ */
+export const requireVerified = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { prisma } = await import("../lib/prisma.js");
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.userId },
+      select: { isVerified: true },
+    });
+
+    if (!user?.isVerified) {
+      return res.status(403).json({
+        success: false,
+        message: "Please verify your email address before accessing this feature.",
+      });
+    }
+
+    next();
+  } catch {
+    next();
+  }
+};

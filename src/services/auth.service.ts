@@ -146,3 +146,38 @@ export const verifyAndResetPassword = async (
 
   return true;
 };
+
+// Generate a short-lived JWT for email verification
+export const generateVerificationToken = (userId: string): string => {
+  return jwt.sign({ userId }, process.env.JWT_ACCESS_SECRET!, { expiresIn: "24h" });
+};
+
+// Verify the token and mark user as verified
+export const verifyEmailService = async (token: string): Promise<void> => {
+  let payload: any;
+
+  try {
+    payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET!);
+  } catch {
+    throw new ServiceError("Invalid or expired verification link.", 400);
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+  if (!user) throw new ServiceError("User not found.", 404);
+  if (user.isVerified) throw new ServiceError("Account is already verified.", 400);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { isVerified: true },
+  });
+};
+
+// Resend verification email
+export const resendVerificationService = async (userId: string): Promise<{ email: string; token: string }> => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new ServiceError("User not found.", 404);
+  if (user.isVerified) throw new ServiceError("Account is already verified.", 400);
+
+  const token = generateVerificationToken(user.id);
+  return { email: user.email, token };
+};

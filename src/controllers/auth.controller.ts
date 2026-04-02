@@ -9,11 +9,14 @@ import {
   getMeService,
   generateResetToken,
   verifyAndResetPassword,
+  generateVerificationToken,
+  verifyEmailService,
+  resendVerificationService,
 } from "../services/auth.service.js";
 import { setRefreshCookie } from "../utils/tokens.utils.js";
 import { formatAuthResponse } from "../helpers/format-auth-response.helper.js";
 import type { LoginInput, RegisterInput } from "../schemas/auth.schema.js";
-import { sendResetEmail } from "../utils/email.util.js";
+import { sendResetEmail, sendVerificationEmail } from "../utils/email.util.js";
 
 export const registerUser = async (
   req: Request,
@@ -30,13 +33,17 @@ export const registerUser = async (
     const userAgent = req.get("User-Agent") || "unknown";
 
     // 3. Call the service
-    const { accessToken, refreshToken } = await register({
+    const { user, accessToken, refreshToken } = await register({
       ...validatedData,
       ip,
       userAgent,
     });
-    
-    // 4. Security layers & Response
+
+    // 4. Send verification email (non-blocking)
+    const verifyToken = generateVerificationToken(user.id);
+    sendVerificationEmail(validatedData.email, verifyToken).catch(console.error);
+
+    // 5. Security layers & Response
     setRefreshCookie(res, refreshToken);
     return res.status(201).json(formatAuthResponse(accessToken));
   } catch (error: any) {
@@ -192,7 +199,7 @@ export const refreshAccessToken = async (
       accessToken, // Send the new short-lived token to the frontend
     });
   } catch (error: any) {
-    // If the refresh token is invalid/expired, clear the cookie so the frontend redirects to login
+    // If the refresh token is invalid/expired, clear the cookie so the frontend redirects to login 
     res.clearCookie("refreshToken", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -225,6 +232,29 @@ export const resetPassword = async (req: Request, res: Response, next: NextFunct
     const { password } = req.body;
     await verifyAndResetPassword(String(token), password);
     res.status(200).json({ success: true, message: "Password reset successful" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Verify email via token from the link
+export const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { token } = req.params;
+    await verifyEmailService(token);
+    res.status(200).json({ success: true, message: "Email verified successfully. You can now access all features." });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Resend verification email (requires login)
+export const resendVerification = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { email, token } = await resendVerificationService(userId);
+    sendVerificationEmail(email, token).catch(console.error);
+    res.status(200).json({ success: true, message: "Verification email sent." });
   } catch (err) {
     next(err);
   }
