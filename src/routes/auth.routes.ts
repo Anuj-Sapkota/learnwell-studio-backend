@@ -1,11 +1,26 @@
 import express from "express";
 import {
+  getMe,
   googleLogin,
   loginUser,
   logoutUser,
   refreshAccessToken,
   registerUser,
+  forgotPassword,
+  resetPassword,
+  verifyEmail,
+  resendVerification,
 } from "../controllers/auth.controller.js";
+import { validate } from "../middleware/validate.middleware.js";
+import {
+  loginSchema,
+  registerSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  verifyEmailSchema,
+  googleAuthSchema,
+} from "../schemas/auth.schema.js";
+import { protect } from "../middleware/auth.middleware.js";
 
 const route = express.Router();
 
@@ -19,7 +34,7 @@ const route = express.Router();
  * @returns { object } 201 - User object and Access Token
  */
 
-route.post("/register", registerUser);
+route.post("/register", validate(registerSchema), registerUser);
 
 /**
  * @desc    Authenticate user and create session
@@ -29,7 +44,7 @@ route.post("/register", registerUser);
  * @body    { string } password - User's password
  * @returns { object } 200 - User object and Access Token
  */
-route.post("/login", loginUser);
+route.post("/login", validate(loginSchema), loginUser);
 
 /**
  * @desc    Logout user and invalidate session
@@ -53,8 +68,16 @@ route.post("/refresh", refreshAccessToken);
  * @access Public access
  * @returns { object } 200 - Success Message
  */
-route.post("/google", googleLogin);
+route.post("/google", validate(googleAuthSchema), googleLogin);
 
+route.get("/me", protect, getMe);
 
+// --- Password Recovery ---
+route.post("/forgot-password", validate(forgotPasswordSchema), forgotPassword);
+route.post("/reset-password/:token", validate(resetPasswordSchema), resetPassword);
+
+// --- Email Verification ---
+route.get("/verify-email/:token", validate(verifyEmailSchema), verifyEmail);
+route.post("/resend-verification", protect, resendVerification);
 
 export default route;

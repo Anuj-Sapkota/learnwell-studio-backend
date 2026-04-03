@@ -3,36 +3,188 @@ import {
   addLesson,
   addSection,
   createCourse,
+  deleteCourse,
+  deleteLesson,
+  deleteSection,
   getCourseDetail,
+  getCoursePreview,
   getCourses,
+  getEnrolledStudents,
+  getMyCourses,
+  getMyEnrolledCourses,
+  syncLessonDurations,
+  updateCourse,
+  updateLesson,
+  updateSection,
+  uploadLessonDocument,
 } from "../controllers/course.controller.js";
-import { protect, authorize } from "../middleware/auth.middleware.js";
+import { protect, authorize, requireVerified } from "../middleware/auth.middleware.js";
+import { validate } from "../middleware/validate.middleware.js";
+import {
+  createCourseSchema,
+  addSectionSchema,
+  courseIdParamSchema,
+  createLessonSchema,
+  enrollInCourseSchema,
+  updateSectionSchema,
+  updateLessonSchema,
+  lessonIdParamSchema,
+  sectionIdParamSchema,
+  updateCourseSchema,
+  courseSearchSchema,
+} from "../schemas/course.schema.js";
+import { uploadDocument, uploadImage, uploadLesson, uploadMixed, uploadVideo } from "../config/cloudinary.js";
+import { enrollInCourse, getCoursePlayer, proxyLessonDocument } from "../controllers/enrollment.controller.js";
 
 const router = express.Router();
 
-// Public: Anyone can see courses
-router.get("/", getCourses);
+// -------------------------------------------------------
+// STATIC ROUTES FIRST — must come before any /:courseId
+// routes otherwise Express matches the static segment as
+// a param value (e.g. "enrolled" becomes courseId).
+// -------------------------------------------------------
 
-// Private: Only Instructors can create
-router.post("/", protect, authorize("INSTRUCTOR", "ADMIN"), createCourse);
+// Public
+router.get("/", validate(courseSearchSchema), getCourses);
+router.get("/preview/:courseId", validate(courseIdParamSchema), getCoursePreview);
 
-// Add Section to specific course
-router.post(
-  "/:courseId/sections",
-  protect,
-  authorize("INSTRUCTOR"),
-  addSection,
-);
+// Instructor
+router.get("/my-courses", protect, authorize("INSTRUCTOR"), getMyCourses);
 
-// Add Lesson to specific section
+// Student
+router.get("/enrolled/me", protect, getMyEnrolledCourses);
+
+// Lesson sub-routes (static prefix "sections" / "lessons")
 router.post(
   "/sections/:sectionId/lessons",
   protect,
+  requireVerified,
   authorize("INSTRUCTOR"),
+  uploadLesson.fields([
+    { name: "video", maxCount: 1 },
+    { name: "document", maxCount: 1 },
+  ]),
+  validate(createLessonSchema),
   addLesson,
 );
+router.patch(
+  "/sections/:sectionId",
+  protect,
+  requireVerified,
+  authorize("INSTRUCTOR"),
+  validate(updateSectionSchema),
+  updateSection,
+);
+router.delete(
+  "/sections/:sectionId",
+  protect,
+  requireVerified,
+  authorize("INSTRUCTOR"),
+  validate(sectionIdParamSchema),
+  deleteSection,
+);
+router.patch(
+  "/lessons/:lessonId",
+  protect,
+  requireVerified,
+  authorize("INSTRUCTOR"),
+  uploadMixed.single("file"),
+  validate(updateLessonSchema),
+  updateLesson,
+);
+router.post(
+  "/lessons/:lessonId/document",
+  protect,
+  requireVerified,
+  authorize("INSTRUCTOR"),
+  uploadDocument.single("document"),
+  validate(lessonIdParamSchema),
+  uploadLessonDocument,
+);
+router.delete(
+  "/lessons/:lessonId",
+  protect,
+  requireVerified,
+  authorize("INSTRUCTOR"),
+  validate(lessonIdParamSchema),
+  deleteLesson,
+);
+// Document proxy (token via header or ?token= query param for iframe)
+router.get("/lessons/:lessonId/document-proxy", protect, proxyLessonDocument);
 
-// Get full course content (for students to watch)
-router.get("/:courseId/full", protect, getCourseDetail);
+// -------------------------------------------------------
+// DYNAMIC /:courseId ROUTES — after all static routes
+// -------------------------------------------------------
+
+router.post(
+  "/",
+  protect,
+  requireVerified,
+  authorize("INSTRUCTOR", "ADMIN"),
+  uploadImage.single("thumbnail"),
+  validate(createCourseSchema),
+  createCourse,
+);
+router.patch(
+  "/:courseId",
+  protect,
+  requireVerified,
+  authorize("INSTRUCTOR"),
+  uploadImage.single("thumbnail"),
+  validate(updateCourseSchema),
+  updateCourse,
+);
+router.delete(
+  "/:courseId",
+  protect,
+  requireVerified,
+  authorize("INSTRUCTOR", "ADMIN"),
+  validate(courseIdParamSchema),
+  deleteCourse,
+);
+router.post(
+  "/:courseId/sections",
+  protect,
+  requireVerified,
+  authorize("INSTRUCTOR"),
+  validate(addSectionSchema),
+  addSection,
+);
+router.get(
+  "/:courseId/full",
+  protect,
+  requireVerified,
+  validate(courseIdParamSchema),
+  getCourseDetail,
+);
+router.post(
+  "/:courseId/enroll",
+  protect,
+  requireVerified,
+  validate(enrollInCourseSchema),
+  enrollInCourse,
+);
+router.post(
+  "/:courseId/sync-durations",
+  protect,
+  authorize("INSTRUCTOR"),
+  validate(courseIdParamSchema),
+  syncLessonDurations,
+);
+
+// Get enrolled students for a course (instructor only)
+router.get(
+  "/:courseId/students",
+  protect,
+  authorize("INSTRUCTOR"),
+  validate(courseIdParamSchema),
+  getEnrolledStudents,
+);
+router.get(
+  "/:courseId/player",
+  protect,
+  validate(courseIdParamSchema),
+  getCoursePlayer,
+);
 
 export default router;

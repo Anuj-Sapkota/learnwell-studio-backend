@@ -1,37 +1,28 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
+  // output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-// User Model for Authentication & Profile
 model User {
-  id            String   @id @default(uuid()) // Using UUID for better security
-  email         String   @unique
-  password_hash String? // Will store Hashed passwords - Optional for google users
+  id            String          @id @default(uuid())
+  email         String          @unique
+  password_hash String?
   fullName      String
-  phoneNumber   String?  @unique
-  role          Role     @default(STUDENT) // Role-based access control
-  isVerified    Boolean  @default(false) // For email/OTP verification
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Profile relation
-  profile  Profile?
-  courses  Course[]
-  sessions DeviceSession[]
+  phoneNumber   String?         @unique
+  role          Role            @default(STUDENT)
+  isVerified    Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  courses       Course[]
+  sessions      DeviceSession[]
+  enrollments   Enrollment[]
+  profile       Profile?
 }
 
-// Separate Profile model for bio, avatars, etc.
 model Profile {
   id     String  @id @default(uuid())
   bio    String?
@@ -41,66 +32,101 @@ model Profile {
 }
 
 model DeviceSession {
-  id         String  @id @default(uuid())
-  token      String  @unique
-  // Information about the connection
-  ipAddress  String  @db.VarChar(45) // Supports IPv4 and IPv6
-  userAgent  String  @db.Text // Stores browser/OS details
-  deviceType String? // e.g., "Mobile", "Desktop", "Tablet"
-
-  // Timing
+  id         String   @id @default(uuid())
+  token      String   @unique
+  ipAddress  String   @db.VarChar(45)
+  userAgent  String
+  deviceType String?
   lastActive DateTime @default(now())
   expiresAt  DateTime @map("expires_at")
   createdAt  DateTime @default(now())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Relationship to User
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId]) // Improves speed 
-}
-
-// Enum for Roles
-enum Role {
-  STUDENT
-  INSTRUCTOR
-  ADMIN
+  @@index([userId])
 }
 
 model Course {
-  id          String  @id @default(uuid())
-  title       String
-  description String? @db.Text
-  thumbnail   String? // URL to image
-  price       Float   @default(0)
-  category    String?
-  level       String  @default("BEGINNER") // BEGINNER, INTERMEDIATE, ADVANCED
-  duration    String? // e.g., "10.5 hours"
+  id              String       @id @default(uuid())
+  title           String
+  shortDescription String     
+  description     String?
+  thumbnail       String?
+  price           Float        @default(0)
+  discount        Float        @default(0)
+  isFree          Boolean      @default(false)
+  accessDuration  Int?
+  categoryId      String?
+  level           String       @default("BEGINNER")
+  totalDuration   Int          @default(0)
+  instructorId    String
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  enrollmentCount Int          @default(0)
+  lectureCount    Int          @default(0)
+  notesCount      Int          @default(0)
+  subjectCount    Int          @default(1)
+  videoCount      Int          @default(0)
+  prerequisites   String[]     @default([])
+  instructor      User         @relation(fields: [instructorId], references: [id])
+  category        Category?    @relation(fields: [categoryId], references: [id])
+  enrollments     Enrollment[]
+  sections        Section[]
+}
 
-  instructorId String
-  instructor   User   @relation(fields: [instructorId], references: [id])
-
-  sections  Section[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  courses     Course[]
 }
 
 model Section {
   id       String   @id @default(uuid())
   title    String
-  order    Int      @default(0) // To keep sections in sequence
+  order    Int      @default(0)
   courseId String
-  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lessons  Lesson[]
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
 }
 
 model Lesson {
-  id        String  @id @default(uuid())
-  title     String
-  content   String? @db.Text
-  videoUrl  String?
-  pdfUrl    String?
-  order     Int     @default(0)
-  sectionId String
-  section   Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  id           String      @id @default(uuid())
+  title        String
+  contentType  ContentType @default(TEXT)
+  content      String?     // Rich text HTML (stored as-is)
+  videoUrl     String?
+  videoName    String?
+  pdfUrl       String?
+  documentName String?
+  duration     Int         @default(0)
+  order        Int         @default(0)
+  sectionId    String
+  section      Section     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+}
+
+enum ContentType {
+  VIDEO
+  PDF
+  TEXT
+  MIXED  // video or pdf + rich text together
+}
+
+model Enrollment {
+  id        String   @id @default(uuid())
+  userId    String
+  courseId  String
+  createdAt DateTime @default(now())
+
+  course    Course   @relation(fields: [courseId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, courseId])
+}
+
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
 }
