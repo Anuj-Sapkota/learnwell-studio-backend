@@ -137,6 +137,7 @@ export const getCoursePreviewService = async (courseId: string) => {
       level: true,
       totalDuration: true,
       videoCount: true,
+      prerequisites: true,
 
       instructor: {
         select: {

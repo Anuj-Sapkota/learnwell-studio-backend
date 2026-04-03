@@ -1,7 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import config from "../config/config.js";
-import { ServiceError } from "../errors/service.error.js";
 
 /**
  * PROTECT: Verifies the Access Token from the Authorization Header or ?token= query param.
