@@ -70,7 +70,13 @@ export const googleAuthService = async (idToken: string, ip: string, userAgent: 
   let user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
     user = await prisma.user.create({
-      data: { email, fullName: name || "Google User" },
+      data: { email, fullName: name || "Google User", isVerified: true },
+    });
+  } else if (!user.isVerified) {
+    // Existing user logging in via Google — mark as verified
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: { isVerified: true },
     });
   }
 
