@@ -4,21 +4,19 @@ import {
   deleteCategoryService,
   getAllCategoriesService,
 } from "../services/category.service.js";
+import type { CreateCategoryInput } from "../schemas/category.schema.js";
 
 export const createCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, description } = req.body;
-    if (!name?.trim()) {
-      return res.status(400).json({ success: false, message: "Category name is required." });
-    }
-    const category = await createCategoryService(name.trim(), description);
+    const { name, description } = req.body as CreateCategoryInput;
+    const category = await createCategoryService(name, description);
     res.status(201).json({ success: true, data: category });
   } catch (err) {
     next(err);
   }
 };
 
-export const getCategories = async (req: Request, res: Response, next: NextFunction) => {
+export const getCategories = async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const categories = await getAllCategoriesService();
     res.status(200).json({ success: true, data: categories });
@@ -29,9 +27,9 @@ export const getCategories = async (req: Request, res: Response, next: NextFunct
 
 export const deleteCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { categoryId } = req.params;
+    const { categoryId } = req.params as { categoryId: string };
     await deleteCategoryService(categoryId);
-    res.status(200).json({ success: true, message: "Category deleted." });
+    res.status(200).json({ success: true, message: "Category deleted successfully." });
   } catch (err) {
     next(err);
   }

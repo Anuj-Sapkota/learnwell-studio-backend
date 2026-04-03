@@ -12,6 +12,7 @@ export const validate =
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Parse the request parts against the schema
+      console.log("req.body before validation:", req.body);
       const parsed = await schema.parseAsync({
         body: req.body,
         query: req.query,

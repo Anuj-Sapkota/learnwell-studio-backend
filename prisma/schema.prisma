@@ -92,17 +92,25 @@ model Section {
 }
 
 model Lesson {
-  id           String  @id @default(uuid())
+  id           String      @id @default(uuid())
   title        String
-  content      String?
+  contentType  ContentType @default(TEXT)
+  content      String?     // Rich text HTML (stored as-is)
   videoUrl     String?
-  videoName    String?  // original filename of the uploaded video
+  videoName    String?
   pdfUrl       String?
-  documentName String?  // original filename of the uploaded document
-  duration     Int     @default(0)
-  order        Int     @default(0)
+  documentName String?
+  duration     Int         @default(0)
+  order        Int         @default(0)
   sectionId    String
-  section      Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  section      Section     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+}
+
+enum ContentType {
+  VIDEO
+  PDF
+  TEXT
+  MIXED  // video or pdf + rich text together
 }
 
 model Enrollment {

@@ -60,17 +60,28 @@ const mixedStorage = new CloudinaryStorage({
   },
 });
 
-// Storage for Documents (PDF, PPT, etc.)
-// Using resource_type "image" for PDFs — Cloudinary supports PDF under image type
-// and free accounts can deliver image-type resources without restrictions.
+// Storage for Documents (PDF, PPT, code files etc.) — resource_type "raw" for non-media files
 const documentStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: async (_req, _file) => ({
-    resource_type: "image",
+  params: async (_req, file) => ({
+    resource_type: "raw",
     folder: "learnwell/documents",
-    allowed_formats: ["pdf"],
-    format: "pdf",
+    public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`,
   }),
+});
+
+// Storage that routes video to video storage and documents to raw storage
+const lessonStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (_req, file) => {
+    const isVideo = file.mimetype.startsWith("video/");
+    return {
+      resource_type: isVideo ? "video" : "raw",
+      folder: isVideo ? "learnwell/lessons" : "learnwell/documents",
+      ...(isVideo && { allowed_formats: ["mp4", "mkv", "mov"], chunk_size: 6000000 }),
+      ...(!isVideo && { public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}` }),
+    };
+  },
 });
 
 
@@ -78,3 +89,4 @@ export const uploadImage = multer({ storage: imageStorage });
 export const uploadVideo = multer({ storage: videoStorage });
 export const uploadMixed = multer({ storage: mixedStorage });
 export const uploadDocument = multer({ storage: documentStorage });
+export const uploadLesson = multer({ storage: lessonStorage });

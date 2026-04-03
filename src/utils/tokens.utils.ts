@@ -6,13 +6,13 @@ export const generateTokens = (userId: string, role: string) => {
   const accessToken = jwt.sign(
     { userId, role },
     process.env.JWT_ACCESS_SECRET!,
-    { expiresIn: config.accessToken.expiry as any },
+    { expiresIn: "15Minutes" },
   );
 
   const refreshToken = jwt.sign(
     { userId },
     process.env.JWT_REFRESH_SECRET!,
-    { expiresIn: config.refreshToken.expiry as any }, //
+    { expiresIn: "7D" }, //
   );
 
   return { accessToken, refreshToken };

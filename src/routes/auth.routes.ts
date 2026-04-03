@@ -12,7 +12,14 @@ import {
   resendVerification,
 } from "../controllers/auth.controller.js";
 import { validate } from "../middleware/validate.middleware.js";
-import { loginSchema, registerSchema } from "../schemas/auth.schema.js";
+import {
+  loginSchema,
+  registerSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  verifyEmailSchema,
+  googleAuthSchema,
+} from "../schemas/auth.schema.js";
 import { protect } from "../middleware/auth.middleware.js";
 
 const route = express.Router();
@@ -61,19 +68,16 @@ route.post("/refresh", refreshAccessToken);
  * @access Public access
  * @returns { object } 200 - Success Message
  */
-route.post("/google", googleLogin);
+route.post("/google", validate(googleAuthSchema), googleLogin);
 
-// get me route which runs after login
 route.get("/me", protect, getMe);
 
-
 // --- Password Recovery ---
-route.post("/forgot-password", forgotPassword);
-route.post("/reset-password/:token", resetPassword);
+route.post("/forgot-password", validate(forgotPasswordSchema), forgotPassword);
+route.post("/reset-password/:token", validate(resetPasswordSchema), resetPassword);
 
 // --- Email Verification ---
-route.get("/verify-email/:token", verifyEmail);
-
+route.get("/verify-email/:token", validate(verifyEmailSchema), verifyEmail);
 route.post("/resend-verification", protect, resendVerification);
 
 export default route;

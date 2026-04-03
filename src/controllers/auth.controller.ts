@@ -25,6 +25,7 @@ export const registerUser = async (
 ): Promise<any> => {
   try {
     console.log("Reached controller");
+    
     // 1. req.body is already validated by middleware
     const validatedData = req.body as RegisterInput;
 

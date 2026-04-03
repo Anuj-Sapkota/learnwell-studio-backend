@@ -9,6 +9,7 @@ import {
   getCourseDetail,
   getCoursePreview,
   getCourses,
+  getEnrolledStudents,
   getMyCourses,
   getMyEnrolledCourses,
   syncLessonDurations,
@@ -29,8 +30,10 @@ import {
   updateLessonSchema,
   lessonIdParamSchema,
   sectionIdParamSchema,
+  updateCourseSchema,
+  courseSearchSchema,
 } from "../schemas/course.schema.js";
-import { uploadDocument, uploadImage, uploadMixed, uploadVideo } from "../config/cloudinary.js";
+import { uploadDocument, uploadImage, uploadLesson, uploadMixed, uploadVideo } from "../config/cloudinary.js";
 import { enrollInCourse, getCoursePlayer, proxyLessonDocument } from "../controllers/enrollment.controller.js";
 
 const router = express.Router();
@@ -42,7 +45,7 @@ const router = express.Router();
 // -------------------------------------------------------
 
 // Public
-router.get("/", getCourses);
+router.get("/", validate(courseSearchSchema), getCourses);
 router.get("/preview/:courseId", validate(courseIdParamSchema), getCoursePreview);
 
 // Instructor
@@ -57,7 +60,10 @@ router.post(
   protect,
   requireVerified,
   authorize("INSTRUCTOR"),
-  uploadVideo.single("video"),
+  uploadLesson.fields([
+    { name: "video", maxCount: 1 },
+    { name: "document", maxCount: 1 },
+  ]),
   validate(createLessonSchema),
   addLesson,
 );
@@ -125,6 +131,7 @@ router.patch(
   requireVerified,
   authorize("INSTRUCTOR"),
   uploadImage.single("thumbnail"),
+  validate(updateCourseSchema),
   updateCourse,
 );
 router.delete(
@@ -163,6 +170,15 @@ router.post(
   authorize("INSTRUCTOR"),
   validate(courseIdParamSchema),
   syncLessonDurations,
+);
+
+// Get enrolled students for a course (instructor only)
+router.get(
+  "/:courseId/students",
+  protect,
+  authorize("INSTRUCTOR"),
+  validate(courseIdParamSchema),
+  getEnrolledStudents,
 );
 router.get(
   "/:courseId/player",
