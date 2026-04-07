@@ -27,15 +27,17 @@ export const createCourseSchema = z.object({
     description: z.string().trim().nullable().default(null),
     price: z.coerce.number().nonnegative("Price cannot be negative").default(0),
     discount: z.coerce.number().min(0).max(100, "Discount must be between 0 and 100").default(0),
+    discountExpiresAt: z.preprocess(
+      (val) => (val === "" || val === null || val === undefined ? null : new Date(val as string)),
+      z.date().nullable()
+    ).default(null),
     isFree: z.coerce.boolean().default(false),
     accessDuration: accessDurationField,
     categoryId: z.string().uuid("Invalid category — please select a valid category"),
     level: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"], {
       message: "Level must be BEGINNER, INTERMEDIATE, or ADVANCED",
     }).default("BEGINNER"),
-    videoCount: z.coerce.number().int().nonnegative().default(0),
     notesCount: z.coerce.number().int().nonnegative().default(0),
-    totalDuration: z.coerce.number().int().nonnegative().default(0),
     prerequisites: prerequisitesField,
   }),
 });
@@ -50,6 +52,10 @@ export const updateCourseSchema = z.object({
     description: z.string().trim().nullable().optional(),
     price: z.coerce.number().nonnegative("Price cannot be negative").optional(),
     discount: z.coerce.number().min(0).max(100, "Discount must be between 0 and 100").optional(),
+    discountExpiresAt: z.preprocess(
+      (val) => (val === "" || val === null || val === undefined ? null : new Date(val as string)),
+      z.date().nullable()
+    ).optional(),
     isFree: z.coerce.boolean().optional(),
     accessDuration: accessDurationField.optional(),
     categoryId: z.string().uuid("Invalid category ID").optional(),

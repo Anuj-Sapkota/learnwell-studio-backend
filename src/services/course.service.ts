@@ -44,7 +44,7 @@ export const getAllCoursesService = async (
   search?: string,
   categoryId?: string,
 ) => {
-  return await prisma.course.findMany({
+  const courses = await prisma.course.findMany({
     where: {
       ...(search && {
         OR: [
@@ -60,7 +60,18 @@ export const getAllCoursesService = async (
     },
     orderBy: { createdAt: "desc" },
   });
-};
+
+  return courses.map((course) => {
+    const discountActive = course.discount > 0 &&
+      (!course.discountExpiresAt || new Date() < course.discountExpiresAt);
+    const effectivePrice = course.isFree
+      ? 0
+      : discountActive
+        ? Math.round(course.price * (1 - course.discount / 100) * 100) / 100
+        : course.price;
+    return { ...course, effectivePrice, discountActive };
+  });
+};;
 
 //Creates the section for the course
 export const createSectionService = async (courseId: string, title: string) => {
@@ -124,7 +135,7 @@ export const getCourseDetailService = async (courseId: string) => {
 
 //Get the preview details for  the course before buying
 export const getCoursePreviewService = async (courseId: string) => {
-  return await prisma.course.findUnique({
+  const course = await prisma.course.findUnique({
     where: { id: courseId },
     select: {
       id: true,
@@ -133,19 +144,20 @@ export const getCoursePreviewService = async (courseId: string) => {
       description: true,
       thumbnail: true,
       price: true,
-      category: true,
+      discount: true,
+      discountExpiresAt: true,
+      isFree: true,
+      categoryId: true,
       level: true,
       totalDuration: true,
       videoCount: true,
       prerequisites: true,
-
       instructor: {
         select: {
           fullName: true,
-          profile: { select: { avatar: true, bio: true } }, // Show who is teaching
+          profile: { select: { avatar: true, bio: true } },
         },
       },
-      // section w
       sections: {
         orderBy: { order: "asc" },
         select: {
@@ -153,17 +165,27 @@ export const getCoursePreviewService = async (courseId: string) => {
           title: true,
           lessons: {
             orderBy: { order: "asc" },
-            select: {
-              id: true,
-              title: true,
-              duration: true,
-            },
+            select: { id: true, title: true, duration: true, contentType: true },
           },
         },
       },
     },
   });
-};
+
+  if (!course) return null;
+
+  // Compute effective price — discount only applies if not expired
+  const discountActive = course.discount > 0 &&
+    (!course.discountExpiresAt || new Date() < course.discountExpiresAt);
+
+  const effectivePrice = course.isFree
+    ? 0
+    : discountActive
+      ? Math.round(course.price * (1 - course.discount / 100) * 100) / 100
+      : course.price;
+
+  return { ...course, effectivePrice, discountActive };
+};;
 
 // fetches the courses created by the fixed instructor
 export const getInstructorCoursesService = async (instructorId: string) => {
@@ -417,7 +439,7 @@ export const deleteLessonService = async (
     if (pid)
       deletions.push(
         cloudinary.api
-          .delete_resources([pid], { resource_type: "image" })
+          .delete_resources([pid], { resource_type: "raw" })
           .catch(console.error),
       );
   }
@@ -425,8 +447,14 @@ export const deleteLessonService = async (
 
   await prisma.lesson.delete({ where: { id: lessonId } });
 
-  // Recalculate course total duration
+  // Recalculate total duration and decrement videoCount if lesson had a video
   await updateCourseTotalDuration(courseId);
+  if (lesson.videoUrl) {
+    await prisma.course.update({
+      where: { id: courseId },
+      data: { videoCount: { decrement: 1 } },
+    });
+  }
 };
 
 interface UpdateCourseData {
