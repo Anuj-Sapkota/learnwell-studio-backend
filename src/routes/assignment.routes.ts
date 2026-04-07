@@ -21,7 +21,7 @@ import {
   submitAssignmentSchema,
 } from "../schemas/assignment.schema.js";
 import { courseIdParamSchema } from "../schemas/course.schema.js";
-import { uploadDocument } from "../config/cloudinary.js";
+import { uploadAssignment, uploadSubmission } from "../config/cloudinary.js";
 
 const router = express.Router();
 
@@ -31,6 +31,7 @@ router.post(
   protect,
   requireVerified,
   authorize("INSTRUCTOR"),
+  uploadAssignment.array("files", 4), // instructor uploads questions here
   validate(createAssignmentSchema),
   createAssignment,
 );
@@ -80,7 +81,7 @@ router.post(
   "/:assignmentId/submit",
   protect,
   requireVerified,
-  uploadDocument.single("file"),
+  uploadSubmission.single("file"),
   validate(submitAssignmentSchema),
   submitAssignment,
 );

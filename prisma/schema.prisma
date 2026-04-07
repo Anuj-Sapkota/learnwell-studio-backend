@@ -132,6 +132,7 @@ model Assignment {
   id          String   @id @default(uuid())
   title       String
   description String?
+  files       Json     @default("[]")  // [{ name, url, type }]
   dueDate     DateTime?
   courseId    String
   createdAt   DateTime @default(now())
