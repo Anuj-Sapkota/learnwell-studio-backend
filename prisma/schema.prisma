@@ -20,6 +20,7 @@ model User {
   courses       Course[]
   sessions      DeviceSession[]
   enrollments   Enrollment[]
+  submissions   Submission[]
   profile       Profile?
 }
 
@@ -54,6 +55,7 @@ model Course {
   thumbnail       String?
   price           Float        @default(0)
   discount        Float        @default(0)
+  discountExpiresAt DateTime?                   // null = discount never expires
   isFree          Boolean      @default(false)
   accessDuration  Int?
   categoryId      String?
@@ -72,6 +74,7 @@ model Course {
   category        Category?    @relation(fields: [categoryId], references: [id])
   enrollments     Enrollment[]
   sections        Section[]
+  assignments     Assignment[]
 }
 
 model Category {
@@ -123,6 +126,39 @@ model Enrollment {
   user      User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, courseId])
+}
+
+model Assignment {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  files       Json     @default("[]")  // [{ name, url, type }]
+  dueDate     DateTime?
+  courseId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+}
+
+model Submission {
+  id           String    @id @default(uuid())
+  fileUrl      String?
+  fileName     String?
+  textContent  String?
+  submittedAt  DateTime  @default(now())
+  grade        Float?
+  maxGrade     Float     @default(100)
+  feedback     String?
+  gradedAt     DateTime?
+  userId       String
+  assignmentId String
+
+  user         User       @relation(fields: [userId], references: [id])
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, assignmentId])
 }
 
 enum Role {

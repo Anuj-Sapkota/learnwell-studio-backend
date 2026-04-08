@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 import { v2 as cloudinary } from "cloudinary";
+import { deleteManyFromCloudinary, deleteFromCloudinary } from "../utils/cloudinary.util.js";
 
 export const createCourseService = async (data: {
   title: string;
@@ -44,7 +45,7 @@ export const getAllCoursesService = async (
   search?: string,
   categoryId?: string,
 ) => {
-  return await prisma.course.findMany({
+  const courses = await prisma.course.findMany({
     where: {
       ...(search && {
         OR: [
@@ -60,7 +61,18 @@ export const getAllCoursesService = async (
     },
     orderBy: { createdAt: "desc" },
   });
-};
+
+  return courses.map((course) => {
+    const discountActive = course.discount > 0 &&
+      (!course.discountExpiresAt || new Date() < course.discountExpiresAt);
+    const effectivePrice = course.isFree
+      ? 0
+      : discountActive
+        ? Math.round(course.price * (1 - course.discount / 100) * 100) / 100
+        : course.price;
+    return { ...course, effectivePrice, discountActive };
+  });
+};;
 
 //Creates the section for the course
 export const createSectionService = async (courseId: string, title: string) => {
@@ -124,7 +136,7 @@ export const getCourseDetailService = async (courseId: string) => {
 
 //Get the preview details for  the course before buying
 export const getCoursePreviewService = async (courseId: string) => {
-  return await prisma.course.findUnique({
+  const course = await prisma.course.findUnique({
     where: { id: courseId },
     select: {
       id: true,
@@ -133,18 +145,20 @@ export const getCoursePreviewService = async (courseId: string) => {
       description: true,
       thumbnail: true,
       price: true,
-      category: true,
+      discount: true,
+      discountExpiresAt: true,
+      isFree: true,
+      categoryId: true,
       level: true,
       totalDuration: true,
       videoCount: true,
-
+      prerequisites: true,
       instructor: {
         select: {
           fullName: true,
-          profile: { select: { avatar: true, bio: true } }, // Show who is teaching
+          profile: { select: { avatar: true, bio: true } },
         },
       },
-      // section w
       sections: {
         orderBy: { order: "asc" },
         select: {
@@ -152,17 +166,27 @@ export const getCoursePreviewService = async (courseId: string) => {
           title: true,
           lessons: {
             orderBy: { order: "asc" },
-            select: {
-              id: true,
-              title: true,
-              duration: true,
-            },
+            select: { id: true, title: true, duration: true, contentType: true },
           },
         },
       },
     },
   });
-};
+
+  if (!course) return null;
+
+  // Compute effective price — discount only applies if not expired
+  const discountActive = course.discount > 0 &&
+    (!course.discountExpiresAt || new Date() < course.discountExpiresAt);
+
+  const effectivePrice = course.isFree
+    ? 0
+    : discountActive
+      ? Math.round(course.price * (1 - course.discount / 100) * 100) / 100
+      : course.price;
+
+  return { ...course, effectivePrice, discountActive };
+};;
 
 // fetches the courses created by the fixed instructor
 export const getInstructorCoursesService = async (instructorId: string) => {
@@ -210,82 +234,29 @@ export const updateCourseTotalDuration = async (courseId: string) => {
 
 // Delete a course (cascades to sections, lessons, enrollments via Prisma schema)
 // Also cleans up all associated Cloudinary assets (videos + thumbnail)
-export const deleteCourseService = async (
-  courseId: string,
-  instructorId: string,
-) => {
-  // 1. Verify ownership and fetch all asset URLs before deleting
+export const deleteCourseService = async (courseId: string, instructorId: string) => {
   const course = await prisma.course.findUnique({
     where: { id: courseId },
-    include: {
-      sections: {
-        include: {
-          lessons: { select: { videoUrl: true } },
-        },
-      },
-    },
+    include: { sections: { include: { lessons: { select: { videoUrl: true, pdfUrl: true } } } } },
   });
 
   if (!course) throw new Error("Course not found");
   if (course.instructorId !== instructorId) throw new Error("Forbidden");
 
-  // 2. Collect all Cloudinary public_ids to delete
-  // Cloudinary URL format: https://res.cloudinary.com/<cloud>/video/upload/v123456/<public_id>.mp4
-  const extractPublicId = (url: string, resourceType: "video" | "image") => {
-    try {
-      // Grab everything after /upload/ and strip the version segment + extension
-      const uploadIndex = url.indexOf("/upload/");
-      if (uploadIndex === -1) return null;
-      const afterUpload = url.slice(uploadIndex + 8); // skip "/upload/"
-      // Remove version prefix like "v1234567890/"
-      const withoutVersion = afterUpload.replace(/^v\d+\//, "");
-      // Remove file extension
-      return withoutVersion.replace(/\.[^/.]+$/, "");
-    } catch {
-      return null;
-    }
-  };
+  // Collect all asset URLs grouped by resource type
+  const videoUrls = course.sections.flatMap((s) => s.lessons.map((l) => l.videoUrl).filter(Boolean) as string[]);
+  const rawUrls = course.sections.flatMap((s) => s.lessons.map((l) => l.pdfUrl).filter(Boolean) as string[]);
+  const imageUrls = course.thumbnail ? [course.thumbnail] : [];
 
-  const videoPublicIds: string[] = [];
-  for (const section of course.sections) {
-    for (const lesson of section.lessons) {
-      if (lesson.videoUrl) {
-        const pid = extractPublicId(lesson.videoUrl, "video");
-        if (pid) videoPublicIds.push(pid);
-      }
-    }
-  }
+  // Delete from Cloudinary in parallel — DB delete is source of truth so errors are non-fatal
+  await Promise.all([
+    deleteManyFromCloudinary(videoUrls, "video"),
+    deleteManyFromCloudinary(rawUrls, "raw"),
+    deleteManyFromCloudinary(imageUrls, "image"),
+  ]);
 
-  const imagePublicIds: string[] = [];
-  if (course.thumbnail) {
-    const pid = extractPublicId(course.thumbnail, "image");
-    if (pid) imagePublicIds.push(pid);
-  }
-
-  // 3. Delete from Cloudinary (fire and don't block on errors — DB delete is the source of truth)
-  const cloudinaryDeletions: Promise<any>[] = [];
-
-  if (videoPublicIds.length > 0) {
-    cloudinaryDeletions.push(
-      cloudinary.api
-        .delete_resources(videoPublicIds, { resource_type: "video" })
-        .catch((err) => console.error("Cloudinary video deletion error:", err)),
-    );
-  }
-
-  if (imagePublicIds.length > 0) {
-    cloudinaryDeletions.push(
-      cloudinary.api
-        .delete_resources(imagePublicIds, { resource_type: "image" })
-        .catch((err) => console.error("Cloudinary image deletion error:", err)),
-    );
-  }
-
-  await Promise.all(cloudinaryDeletions);
-
-  // 4. Delete from DB — Prisma cascade handles sections, lessons, enrollments
   return await prisma.course.delete({ where: { id: courseId } });
-};
+};;
 
 // get section by Id
 export const getSectionById = async (sectionId: string) => {
@@ -369,64 +340,29 @@ export const updateLessonService = async (
 };
 
 // Delete a lesson and clean up Cloudinary assets
-export const deleteLessonService = async (
-  lessonId: string,
-  instructorId: string,
-) => {
+export const deleteLessonService = async (lessonId: string, instructorId: string) => {
   const lesson = await prisma.lesson.findUnique({
     where: { id: lessonId },
-    include: {
-      section: {
-        include: { course: { select: { instructorId: true, id: true } } },
-      },
-    },
+    include: { section: { include: { course: { select: { instructorId: true, id: true } } } } },
   });
 
   if (!lesson) throw new Error("Lesson not found");
-  if (lesson.section.course.instructorId !== instructorId)
-    throw new Error("Forbidden");
+  if (lesson.section.course.instructorId !== instructorId) throw new Error("Forbidden");
 
   const courseId = lesson.section.course.id;
 
-  // Clean up Cloudinary assets
-  const extractPublicId = (url: string) => {
-    try {
-      const uploadIndex = url.indexOf("/upload/");
-      if (uploadIndex === -1) return null;
-      const afterUpload = url.slice(uploadIndex + 8);
-      const withoutVersion = afterUpload.replace(/^v\d+\//, "");
-      return withoutVersion.replace(/\.[^/.]+$/, "");
-    } catch {
-      return null;
-    }
-  };
-
-  const deletions: Promise<any>[] = [];
-  if (lesson.videoUrl) {
-    const pid = extractPublicId(lesson.videoUrl);
-    if (pid)
-      deletions.push(
-        cloudinary.api
-          .delete_resources([pid], { resource_type: "video" })
-          .catch(console.error),
-      );
-  }
-  if (lesson.pdfUrl) {
-    const pid = extractPublicId(lesson.pdfUrl);
-    if (pid)
-      deletions.push(
-        cloudinary.api
-          .delete_resources([pid], { resource_type: "image" })
-          .catch(console.error),
-      );
-  }
-  await Promise.all(deletions);
+  await Promise.all([
+    lesson.videoUrl ? deleteFromCloudinary(lesson.videoUrl, "video") : Promise.resolve(),
+    lesson.pdfUrl ? deleteFromCloudinary(lesson.pdfUrl, "raw") : Promise.resolve(),
+  ]);
 
   await prisma.lesson.delete({ where: { id: lessonId } });
-
-  // Recalculate course total duration
   await updateCourseTotalDuration(courseId);
-};
+
+  if (lesson.videoUrl) {
+    await prisma.course.update({ where: { id: courseId }, data: { videoCount: { decrement: 1 } } });
+  }
+};;
 
 interface UpdateCourseData {
   title?: string;

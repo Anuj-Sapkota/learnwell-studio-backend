@@ -78,15 +78,52 @@ const lessonStorage = new CloudinaryStorage({
     return {
       resource_type: isVideo ? "video" : "raw",
       folder: isVideo ? "learnwell/lessons" : "learnwell/documents",
-      ...(isVideo && { allowed_formats: ["mp4", "mkv", "mov"], chunk_size: 6000000 }),
-      ...(!isVideo && { public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}` }),
+      ...(isVideo && {
+        allowed_formats: ["mp4", "mkv", "mov"],
+        chunk_size: 6000000,
+      }),
+      ...(!isVideo && {
+        public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`,
+      }),
     };
   },
 });
 
+// uploads assignment with file types as all
+const assignmentStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (_req, file) => {
+    const isVideo = file.mimetype.startsWith("video/");
+    const isImage = file.mimetype.startsWith("image/");
 
-export const uploadImage = multer({ storage: imageStorage });
-export const uploadVideo = multer({ storage: videoStorage });
-export const uploadMixed = multer({ storage: mixedStorage });
-export const uploadDocument = multer({ storage: documentStorage });
-export const uploadLesson = multer({ storage: lessonStorage });
+    return {
+      resource_type: isVideo ? "video" : isImage ? "image" : "raw",
+      folder: "learnwell/assignments",
+      public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`,
+    };
+  },
+});
+
+// Storage for student assignment submissions
+const submissionStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (_req, file) => {
+    const isVideo = file.mimetype.startsWith("video/");
+    const isImage = file.mimetype.startsWith("image/");
+    return {
+      resource_type: isVideo ? "video" : isImage ? "image" : "raw",
+      folder: "learnwell/submissions",
+      public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`,
+    };
+  },
+});
+
+const MB = 1024 * 1024;
+
+export const uploadImage = multer({ storage: imageStorage, limits: { fileSize: 5 * MB } });
+export const uploadVideo = multer({ storage: videoStorage, limits: { fileSize: 500 * MB } });
+export const uploadMixed = multer({ storage: mixedStorage, limits: { fileSize: 500 * MB } });
+export const uploadDocument = multer({ storage: documentStorage, limits: { fileSize: 20 * MB } });
+export const uploadLesson = multer({ storage: lessonStorage, limits: { fileSize: 500 * MB } });
+export const uploadAssignment = multer({ storage: assignmentStorage, limits: { fileSize: 20 * MB } });
+export const uploadSubmission = multer({ storage: submissionStorage, limits: { fileSize: 20 * MB } });

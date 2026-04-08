@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { getStudentEnrollments } from "../services/enrollment.service.js";
 import type { CreateCourseInput } from "../schemas/course.schema.js";
 import { v2 as cloudinary } from "cloudinary";
+import { prisma } from "../lib/prisma.js";
 import {
   createCourseService,
   createLessonService,
@@ -118,6 +119,9 @@ export const addLesson = async (req: Request, res: Response, next: NextFunction)
       try {
         const result = await cloudinary.api.resource(publicId, { resource_type: "video" });
         duration = Math.round(result.duration || 0);
+        console.log("Duration: ", duration);
+        console.log("Result: ", result)
+        console.log("Result duration: ", result.duration)
       } catch (err) {
         console.error("Cloudinary duration fetch failed:", err);
       }
@@ -143,7 +147,16 @@ export const addLesson = async (req: Request, res: Response, next: NextFunction)
     });
 
     const section = await getSectionById(sectionId);
-    if (section?.courseId) await updateCourseTotalDuration(section.courseId);
+    if (section?.courseId) {
+      await updateCourseTotalDuration(section.courseId);
+      // Increment videoCount if this lesson has a video
+      if (videoUrl) {
+        await prisma.course.update({
+          where: { id: section.courseId },
+          data: { videoCount: { increment: 1 } },
+        });
+      }
+    }
 
     res.status(201).json({ success: true, data: lesson });
   } catch (error: any) {
