@@ -8,11 +8,6 @@ export const createAssignmentSchema = z.object({
     title: z.string().trim().min(3, "Title must be at least 3 characters").max(150),
     description: z.string().trim().optional(),
     type: z.enum(["FILE_SUBMISSION", "MCQ"]).default("FILE_SUBMISSION"),
-    dueDate: z.preprocess(
-      (val) => (val === "" || val === null || val === undefined ? null : new Date(val as string)),
-      z.date().nullable()
-    ).default(null),
-    // MCQ questions: [{ question, options: string[], correctIndex: number }]
     questions: z.preprocess(
       (val) => {
         if (Array.isArray(val)) return val;
@@ -35,10 +30,6 @@ export const updateAssignmentSchema = z.object({
   body: z.object({
     title: z.string().trim().min(3).max(150).optional(),
     description: z.string().trim().optional(),
-    dueDate: z.preprocess(
-      (val) => (val === "" || val === null || val === undefined ? null : new Date(val as string)),
-      z.date().nullable()
-    ).optional(),
   }).refine((d) => Object.keys(d).length > 0, { message: "At least one field required" }),
 });
 
@@ -65,7 +56,6 @@ export const submitAssignmentSchema = z.object({
   }),
   body: z.object({
     textContent: z.string().trim().optional(),
-    // MCQ answers: [{ questionIndex, selectedIndex }]
     mcqAnswers: z.preprocess(
       (val) => {
         if (Array.isArray(val)) return val;

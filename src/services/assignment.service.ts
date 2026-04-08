@@ -8,7 +8,7 @@ type AssignmentFile = { name: string; url: string; type: string };
 export const createAssignmentService = async (
   courseId: string,
   instructorId: string,
-  data: { title: string; description?: string; type?: string; dueDate?: Date | null; files?: AssignmentFile[]; questions?: any[] },
+  data: { title: string; description?: string; type?: string; files?: AssignmentFile[]; questions?: any[] },
 ) => {
   const course = await prisma.course.findUnique({ where: { id: courseId }, select: { instructorId: true } });
   if (!course) throw new ServiceError("Course not found.", 404);
@@ -19,7 +19,6 @@ export const createAssignmentService = async (
       title: data.title,
       description: data.description ?? null,
       type: (data.type as any) ?? "FILE_SUBMISSION",
-      dueDate: data.dueDate ?? null,
       files: data.files ?? [],
       questions: data.questions ?? [],
       courseId,
@@ -71,7 +70,7 @@ export const deleteAssignmentService = async (assignmentId: string, instructorId
 export const getCourseAssignmentsService = async (courseId: string) => {
   return await prisma.assignment.findMany({
     where: { courseId },
-    orderBy: { dueDate: "asc" },
+    orderBy: { createdAt: "asc" },
     include: { _count: { select: { submissions: true } } },
   });
 };
@@ -84,13 +83,9 @@ export const submitAssignmentService = async (
 ) => {
   const assignment = await prisma.assignment.findUnique({
     where: { id: assignmentId },
-    select: { dueDate: true, courseId: true, type: true, questions: true, files: true },
+    select: { courseId: true, type: true, questions: true, files: true },
   });
   if (!assignment) throw new ServiceError("Assignment not found.", 404);
-
-  if (assignment.dueDate && new Date() > assignment.dueDate) {
-    throw new ServiceError("The submission deadline has passed.", 400);
-  }
 
   const enrolled = await prisma.enrollment.findUnique({
     where: { userId_courseId: { userId, courseId: assignment.courseId } },

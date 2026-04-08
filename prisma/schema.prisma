@@ -150,9 +150,8 @@ model Assignment {
   title       String
   description String?
   type        AssignmentType @default(FILE_SUBMISSION)
-  files       Json           @default("[]")  // [{ name, url, type }] for FILE_SUBMISSION
-  questions   Json           @default("[]")  // [{ question, options: [], correctIndex }] for MCQ
-  dueDate     DateTime?
+  files       Json           @default("[]")
+  questions   Json           @default("[]")
   courseId    String
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt

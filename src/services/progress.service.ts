@@ -134,7 +134,7 @@ export const getCourseProgressService = async (userId: string, courseId: string)
           },
         },
       },
-      assignments: { select: { id: true, title: true, type: true, dueDate: true } },
+      assignments: { select: { id: true, title: true, type: true } },
     },
   });
 
