@@ -8,7 +8,7 @@ type AssignmentFile = { name: string; url: string; type: string };
 export const createAssignmentService = async (
   courseId: string,
   instructorId: string,
-  data: { title: string; description?: string; dueDate?: Date | null; files?: AssignmentFile[] },
+  data: { title: string; description?: string; type?: string; dueDate?: Date | null; files?: AssignmentFile[]; questions?: any[] },
 ) => {
   const course = await prisma.course.findUnique({ where: { id: courseId }, select: { instructorId: true } });
   if (!course) throw new ServiceError("Course not found.", 404);
@@ -18,8 +18,10 @@ export const createAssignmentService = async (
     data: {
       title: data.title,
       description: data.description ?? null,
+      type: (data.type as any) ?? "FILE_SUBMISSION",
       dueDate: data.dueDate ?? null,
       files: data.files ?? [],
+      questions: data.questions ?? [],
       courseId,
     },
   });
@@ -74,15 +76,15 @@ export const getCourseAssignmentsService = async (courseId: string) => {
   });
 };
 
-// ── Student: Submit assignment (text or file) ─────────────────────────────────
+// ── Student: Submit assignment (text, file, or MCQ) ───────────────────────────
 export const submitAssignmentService = async (
   assignmentId: string,
   userId: string,
-  data: { textContent?: string; fileUrl?: string; fileName?: string },
+  data: { textContent?: string; fileUrl?: string; fileName?: string; mcqAnswers?: { questionIndex: number; selectedIndex: number }[] },
 ) => {
   const assignment = await prisma.assignment.findUnique({
     where: { id: assignmentId },
-    select: { dueDate: true, courseId: true },
+    select: { dueDate: true, courseId: true, type: true, questions: true, files: true },
   });
   if (!assignment) throw new ServiceError("Assignment not found.", 404);
 
@@ -95,11 +97,30 @@ export const submitAssignmentService = async (
   });
   if (!enrolled) throw new ServiceError("You are not enrolled in this course.", 403);
 
+  // MCQ type — auto-calculate score
+  if (assignment.type === "MCQ") {
+    if (!data.mcqAnswers?.length) {
+      throw new ServiceError("MCQ submission requires answers.", 400);
+    }
+    const questions = assignment.questions as { question: string; options: string[]; correctIndex: number }[];
+    const correct = data.mcqAnswers.filter(
+      (a) => questions[a.questionIndex]?.correctIndex === a.selectedIndex
+    ).length;
+    const mcqScore = Math.round((correct / questions.length) * 100);
+
+    return await prisma.submission.upsert({
+      where: { userId_assignmentId: { userId, assignmentId } },
+      update: { mcqAnswers: data.mcqAnswers, mcqScore, submittedAt: new Date() },
+      create: { userId, assignmentId, mcqAnswers: data.mcqAnswers, mcqScore },
+    });
+  }
+
+  // FILE_SUBMISSION type
   if (!data.textContent?.trim() && !data.fileUrl) {
     throw new ServiceError("Submission must include text content or a file.", 400);
   }
 
-  // If resubmitting with a new file, delete the old one from Cloudinary
+  // Delete old file from Cloudinary on resubmission
   if (data.fileUrl) {
     const existing = await prisma.submission.findUnique({
       where: { userId_assignmentId: { userId, assignmentId } },
@@ -110,7 +131,6 @@ export const submitAssignmentService = async (
     }
   }
 
-  // Upsert — allow resubmission before deadline
   return await prisma.submission.upsert({
     where: { userId_assignmentId: { userId, assignmentId } },
     update: {

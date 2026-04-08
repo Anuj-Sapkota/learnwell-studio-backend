@@ -21,6 +21,7 @@ model User {
   sessions      DeviceSession[]
   enrollments   Enrollment[]
   submissions   Submission[]
+  lessonProgress LessonProgress[]
   profile       Profile?
 }
 
@@ -98,7 +99,7 @@ model Lesson {
   id           String      @id @default(uuid())
   title        String
   contentType  ContentType @default(TEXT)
-  content      String?     // Rich text HTML (stored as-is)
+  content      String?
   videoUrl     String?
   videoName    String?
   pdfUrl       String?
@@ -107,6 +108,22 @@ model Lesson {
   order        Int         @default(0)
   sectionId    String
   section      Section     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  progress     LessonProgress[]
+}
+
+model LessonProgress {
+  id             String    @id @default(uuid())
+  userId         String
+  lessonId       String
+  watchedPercent Float     @default(0)   // 0-100
+  isUnlocked     Boolean   @default(false)
+  completedAt    DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson  Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
 }
 
 enum ContentType {
@@ -129,17 +146,24 @@ model Enrollment {
 }
 
 model Assignment {
-  id          String   @id @default(uuid())
+  id          String         @id @default(uuid())
   title       String
   description String?
-  files       Json     @default("[]")  // [{ name, url, type }]
+  type        AssignmentType @default(FILE_SUBMISSION)
+  files       Json           @default("[]")  // [{ name, url, type }] for FILE_SUBMISSION
+  questions   Json           @default("[]")  // [{ question, options: [], correctIndex }] for MCQ
   dueDate     DateTime?
   courseId    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
   submissions Submission[]
+}
+
+enum AssignmentType {
+  FILE_SUBMISSION
+  MCQ
 }
 
 model Submission {
@@ -147,6 +171,8 @@ model Submission {
   fileUrl      String?
   fileName     String?
   textContent  String?
+  mcqAnswers   Json?     // [{ questionIndex, selectedIndex }] for MCQ submissions
+  mcqScore     Float?    // auto-calculated for MCQ
   submittedAt  DateTime  @default(now())
   grade        Float?
   maxGrade     Float     @default(100)
