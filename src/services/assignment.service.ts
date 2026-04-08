@@ -1,6 +1,7 @@
 import { prisma } from "../lib/prisma.js";
 import { ServiceError } from "../errors/service.error.js";
 import { deleteFromCloudinary } from "../utils/cloudinary.util.js";
+import { checkAndIssueCertificate } from "./certificate.service.js";
 
 type AssignmentFile = { name: string; url: string; type: string };
 
@@ -103,11 +104,15 @@ export const submitAssignmentService = async (
     ).length;
     const mcqScore = Math.round((correct / questions.length) * 100);
 
-    return await prisma.submission.upsert({
+    const submission = await prisma.submission.upsert({
       where: { userId_assignmentId: { userId, assignmentId } },
       update: { mcqAnswers: data.mcqAnswers, mcqScore, submittedAt: new Date() },
       create: { userId, assignmentId, mcqAnswers: data.mcqAnswers, mcqScore },
     });
+
+    // Check if all assignments done → issue certificate
+    const certificate = await checkAndIssueCertificate(userId, assignment.courseId);
+    return { submission, certificate };
   }
 
   // FILE_SUBMISSION type
@@ -126,7 +131,7 @@ export const submitAssignmentService = async (
     }
   }
 
-  return await prisma.submission.upsert({
+  const submission = await prisma.submission.upsert({
     where: { userId_assignmentId: { userId, assignmentId } },
     update: {
       textContent: data.textContent ?? null,
@@ -142,6 +147,10 @@ export const submitAssignmentService = async (
       fileName: data.fileName ?? null,
     },
   });
+
+  // Check if all assignments done → issue certificate
+  const certificate = await checkAndIssueCertificate(userId, assignment.courseId);
+  return { submission, certificate };
 };
 
 // ── Instructor: View all submissions for an assignment ────────────────────────

@@ -6,6 +6,7 @@ import authRouter from "./routes/auth.routes.js";
 import courseRouter from "./routes/courses.routes.js";
 import categoryRouter from "./routes/category.routes.js";
 import assignmentRouter from "./routes/assignment.routes.js";
+import certificateRouter from "./routes/certificate.routes.js";
 import { globalErrorHandler } from "./middleware/error.middleware.js";
 
 const app = express();
@@ -47,6 +48,7 @@ app.use("/api/course", courseRouter);
 // Categories
 app.use("/api/categories", categoryRouter);
 app.use("/api/assignments", assignmentRouter);
+app.use("/api/certificates", certificateRouter);
 
 
 // global error handler
