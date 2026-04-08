@@ -34,6 +34,17 @@ export const assignmentIdParamSchema = z.object({
   }),
 });
 
+export const gradeSubmissionSchema = z.object({
+  params: z.object({
+    submissionId: z.string().uuid("Invalid Submission ID format"),
+  }),
+  body: z.object({
+    grade: z.coerce.number().min(0, "Grade cannot be negative"),
+    maxGrade: z.coerce.number().positive("Max grade must be positive").default(100),
+    feedback: z.string().trim().max(1000, "Feedback is too long").optional(),
+  }),
+});
+
 export const submitAssignmentSchema = z.object({
   params: z.object({
     assignmentId: z.string().uuid("Invalid Assignment ID format"),

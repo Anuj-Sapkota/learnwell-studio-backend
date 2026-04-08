@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 import { ServiceError } from "../errors/service.error.js";
+import { deleteFromCloudinary } from "../utils/cloudinary.util.js";
 
 type AssignmentFile = { name: string; url: string; type: string };
 
@@ -44,10 +45,22 @@ export const updateAssignmentService = async (
 export const deleteAssignmentService = async (assignmentId: string, instructorId: string) => {
   const assignment = await prisma.assignment.findUnique({
     where: { id: assignmentId },
-    include: { course: { select: { instructorId: true } } },
+    include: { course: { select: { instructorId: true } }, submissions: { select: { fileUrl: true } } },
   });
   if (!assignment) throw new ServiceError("Assignment not found.", 404);
   if (assignment.course.instructorId !== instructorId) throw new ServiceError("Forbidden.", 403);
+
+  // Clean up all submission files from Cloudinary
+  const submissionUrls = assignment.submissions.map((s) => s.fileUrl).filter(Boolean) as string[];
+  await Promise.all(submissionUrls.map((url) => deleteFromCloudinary(url, "raw")));
+
+  // Clean up assignment attachment files
+  const files = (assignment.files as { url: string; type: string }[]) ?? [];
+  await Promise.all(
+    files.map((f) =>
+      deleteFromCloudinary(f.url, f.type === "VIDEO" ? "video" : f.type === "IMAGE" ? "image" : "raw")
+    )
+  );
 
   return await prisma.assignment.delete({ where: { id: assignmentId } });
 };
@@ -84,6 +97,17 @@ export const submitAssignmentService = async (
 
   if (!data.textContent?.trim() && !data.fileUrl) {
     throw new ServiceError("Submission must include text content or a file.", 400);
+  }
+
+  // If resubmitting with a new file, delete the old one from Cloudinary
+  if (data.fileUrl) {
+    const existing = await prisma.submission.findUnique({
+      where: { userId_assignmentId: { userId, assignmentId } },
+      select: { fileUrl: true },
+    });
+    if (existing?.fileUrl) {
+      await deleteFromCloudinary(existing.fileUrl, "raw");
+    }
   }
 
   // Upsert — allow resubmission before deadline
@@ -129,5 +153,42 @@ export const getSubmissionsService = async (assignmentId: string, instructorId: 
 export const getMySubmissionService = async (assignmentId: string, userId: string) => {
   return await prisma.submission.findUnique({
     where: { userId_assignmentId: { userId, assignmentId } },
+  });
+};
+
+// ── Instructor: Grade a submission ────────────────────────────────────────────
+export const gradeSubmissionService = async (
+  submissionId: string,
+  instructorId: string,
+  data: { grade: number; maxGrade?: number; feedback?: string },
+) => {
+  const submission = await prisma.submission.findUnique({
+    where: { id: submissionId },
+    include: {
+      assignment: { include: { course: { select: { instructorId: true } } } },
+    },
+  });
+
+  if (!submission) throw new ServiceError("Submission not found.", 404);
+  if (submission.assignment.course.instructorId !== instructorId) {
+    throw new ServiceError("Forbidden.", 403);
+  }
+
+  const maxGrade = data.maxGrade ?? 100;
+  if (data.grade > maxGrade) {
+    throw new ServiceError(`Grade cannot exceed max grade of ${maxGrade}.`, 400);
+  }
+
+  return await prisma.submission.update({
+    where: { id: submissionId },
+    data: {
+      grade: data.grade,
+      maxGrade,
+      feedback: data.feedback ?? null,
+      gradedAt: new Date(),
+    },
+    include: {
+      user: { select: { id: true, fullName: true, email: true } },
+    },
   });
 };

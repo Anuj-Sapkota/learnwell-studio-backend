@@ -7,6 +7,7 @@ import {
   submitAssignment,
   getSubmissions,
   getMySubmission,
+  gradeSubmission,
 } from "../controllers/assignment.controller.js";
 import {
   protect,
@@ -19,6 +20,7 @@ import {
   updateAssignmentSchema,
   assignmentIdParamSchema,
   submitAssignmentSchema,
+  gradeSubmissionSchema,
 } from "../schemas/assignment.schema.js";
 import { courseIdParamSchema } from "../schemas/course.schema.js";
 import { uploadAssignment, uploadSubmission } from "../config/cloudinary.js";
@@ -61,6 +63,15 @@ router.get(
   authorize("INSTRUCTOR"),
   validate(assignmentIdParamSchema),
   getSubmissions,
+);
+
+// Grade a specific submission
+router.patch(
+  "/submissions/:submissionId/grade",
+  protect,
+  authorize("INSTRUCTOR"),
+  validate(gradeSubmissionSchema),
+  gradeSubmission,
 );
 
 // ── Shared routes ─────────────────────────────────────────────────────────────

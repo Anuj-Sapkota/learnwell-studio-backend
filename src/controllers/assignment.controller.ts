@@ -7,6 +7,7 @@ import {
   submitAssignmentService,
   getSubmissionsService,
   getMySubmissionService,
+  gradeSubmissionService,
 } from "../services/assignment.service.js";
 
 interface ProtectedRequest extends Request {
@@ -126,6 +127,18 @@ export const getMySubmission = async (req: Request, res: Response, next: NextFun
     const submission = await getMySubmissionService(assignmentId, userId);
     if (!submission) return res.status(404).json({ success: false, message: "No submission found." });
     res.status(200).json({ success: true, data: submission });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Instructor: Grade a submission ────────────────────────────────────────────
+export const gradeSubmission = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { submissionId } = req.params as { submissionId: string };
+    const instructorId = (req as ProtectedRequest).user.userId;
+    const result = await gradeSubmissionService(submissionId, instructorId, req.body);
+    res.status(200).json({ success: true, data: result });
   } catch (err) {
     next(err);
   }

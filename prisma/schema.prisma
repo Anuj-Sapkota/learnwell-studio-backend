@@ -143,18 +143,22 @@ model Assignment {
 }
 
 model Submission {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   fileUrl      String?
   fileName     String?
   textContent  String?
-  submittedAt  DateTime @default(now())
+  submittedAt  DateTime  @default(now())
+  grade        Float?
+  maxGrade     Float     @default(100)
+  feedback     String?
+  gradedAt     DateTime?
   userId       String
   assignmentId String
 
   user         User       @relation(fields: [userId], references: [id])
   assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, assignmentId]) // one submission per student per assignment
+  @@unique([userId, assignmentId])
 }
 
 enum Role {
