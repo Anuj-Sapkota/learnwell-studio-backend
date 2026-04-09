@@ -99,6 +99,7 @@ export const submitAssignment = async (req: Request, res: Response, next: NextFu
       textContent: req.body.textContent,
       fileUrl,
       ...(fileName && { fileName }),
+      mcqAnswers: req.body.mcqAnswers,
     });
 
     res.status(201).json({ success: true, data: submission });

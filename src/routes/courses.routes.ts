@@ -17,7 +17,9 @@ import {
   updateLesson,
   updateSection,
   uploadLessonDocument,
+  uploadSignature as uploadInstructorSignature,
 } from "../controllers/course.controller.js";
+import { updateLessonProgress, getCourseProgress } from "../controllers/progress.controller.js";
 import { protect, authorize, requireVerified } from "../middleware/auth.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
 import {
@@ -33,7 +35,8 @@ import {
   updateCourseSchema,
   courseSearchSchema,
 } from "../schemas/course.schema.js";
-import { uploadDocument, uploadImage, uploadLesson, uploadMixed, uploadVideo } from "../config/cloudinary.js";
+import { updateProgressSchema } from "../schemas/assignment.schema.js";
+import { uploadDocument, uploadImage, uploadLesson, uploadMixed, uploadSignature, uploadVideo } from "../config/cloudinary.js";
 import { enrollInCourse, getCoursePlayer, proxyLessonDocument } from "../controllers/enrollment.controller.js";
 
 const router = express.Router();
@@ -51,8 +54,34 @@ router.get("/preview/:courseId", validate(courseIdParamSchema), getCoursePreview
 // Instructor
 router.get("/my-courses", protect, authorize("INSTRUCTOR"), getMyCourses);
 
+// Upload instructor signature for a course (used on certificate)
+router.post(
+  "/:courseId/signature",
+  protect,
+  authorize("INSTRUCTOR"),
+  uploadSignature.single("signature"),
+  validate(courseIdParamSchema),
+  uploadInstructorSignature,
+);
+
 // Student
 router.get("/enrolled/me", protect, getMyEnrolledCourses);
+
+// Progress tracking — video player calls this periodically
+router.post(
+  "/lessons/:lessonId/progress",
+  protect,
+  validate(updateProgressSchema),
+  updateLessonProgress,
+);
+
+// Get full course progress for the logged-in student
+router.get(
+  "/:courseId/progress",
+  protect,
+  validate(courseIdParamSchema),
+  getCourseProgress,
+);
 
 // Lesson sub-routes (static prefix "sections" / "lessons")
 router.post(

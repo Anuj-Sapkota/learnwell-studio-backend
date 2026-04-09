@@ -118,6 +118,21 @@ const submissionStorage = new CloudinaryStorage({
   },
 });
 
+// Storage for instructor signatures — PNG with transparency preserved
+const signatureStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (_req, _file) => ({
+    folder: "learnwell/signatures",
+    allowed_formats: ["png", "jpg", "jpeg", "webp"],
+    // Remove background and convert to PNG to preserve transparency
+    transformation: [
+      { background_removal: "cloudinary_ai" },
+      { width: 400, crop: "limit" },
+      { format: "png" },
+    ],
+  }),
+});
+
 const MB = 1024 * 1024;
 
 export const uploadImage = multer({ storage: imageStorage, limits: { fileSize: 5 * MB } });
@@ -127,3 +142,4 @@ export const uploadDocument = multer({ storage: documentStorage, limits: { fileS
 export const uploadLesson = multer({ storage: lessonStorage, limits: { fileSize: 500 * MB } });
 export const uploadAssignment = multer({ storage: assignmentStorage, limits: { fileSize: 20 * MB } });
 export const uploadSubmission = multer({ storage: submissionStorage, limits: { fileSize: 20 * MB } });
+export const uploadSignature = multer({ storage: signatureStorage, limits: { fileSize: 2 * MB } });
