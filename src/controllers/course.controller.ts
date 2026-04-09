@@ -490,3 +490,36 @@ export const getEnrolledStudents = async (
     next(error);
   }
 };
+
+// Upload or replace instructor signature for a course
+export const uploadSignature = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { courseId } = req.params as { courseId: string };
+    const instructorId = (req as ProtectedRequest).user.userId;
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No signature file provided." });
+    }
+
+    const course = await prisma.course.findUnique({ where: { id: courseId }, select: { instructorId: true, instructorSignature: true } });
+    if (!course) return res.status(404).json({ success: false, message: "Course not found." });
+    if (course.instructorId !== instructorId) return res.status(403).json({ success: false, message: "Forbidden." });
+
+    // Delete old signature from Cloudinary if exists
+    if (course.instructorSignature) {
+      const { deleteFromCloudinary } = await import("../utils/cloudinary.util.js");
+      await deleteFromCloudinary(course.instructorSignature, "image");
+    }
+
+    const signatureUrl = (req.file as any).path;
+    const updated = await prisma.course.update({
+      where: { id: courseId },
+      data: { instructorSignature: signatureUrl },
+      select: { id: true, instructorSignature: true },
+    });
+
+    res.status(200).json({ success: true, data: updated });
+  } catch (err) {
+    next(err);
+  }
+};

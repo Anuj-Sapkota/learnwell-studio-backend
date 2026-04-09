@@ -23,6 +23,7 @@ model User {
   submissions   Submission[]
   lessonProgress LessonProgress[]
   certificates  Certificate[]
+  quizAttempts  QuizAttempt[]
   profile       Profile?
 }
 
@@ -72,12 +73,15 @@ model Course {
   subjectCount    Int          @default(1)
   videoCount      Int          @default(0)
   prerequisites   String[]     @default([])
+  instructorSignature String?              // Cloudinary URL of instructor's signature image
   instructor      User         @relation(fields: [instructorId], references: [id])
   category        Category?    @relation(fields: [categoryId], references: [id])
   enrollments     Enrollment[]
   sections        Section[]
   assignments     Assignment[]
   certificates    Certificate[]
+  questionBank    QuestionBank?
+  quizzes         Quiz[]
 }
 
 model Category {
@@ -177,7 +181,91 @@ model Assignment {
 
 enum AssignmentType {
   FILE_SUBMISSION
+  CODE_SUBMISSION
   MCQ
+}
+
+// ── Question Bank ─────────────────────────────────────────────────────────────
+
+model QuestionBank {
+  id        String     @id @default(uuid())
+  courseId  String
+  createdAt DateTime   @default(now())
+
+  course    Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions Question[]
+
+  @@unique([courseId])
+}
+
+model Question {
+  id             String       @id @default(uuid())
+  type           QuestionType
+  text           String
+  // MCQ / TRUE_FALSE: options stored as Json array of strings
+  options        Json         @default("[]")
+  // Correct answer — for MCQ: index (int), TRUE_FALSE: "true"/"false", FILL_BLANK: expected string, CODING: null (manual)
+  correctAnswer  String?
+  explanation    String?      // shown after submission
+  points         Int          @default(1)
+  questionBankId String
+  createdAt      DateTime     @default(now())
+
+  questionBank   QuestionBank        @relation(fields: [questionBankId], references: [id], onDelete: Cascade)
+  quizQuestions  QuizQuestion[]
+}
+
+enum QuestionType {
+  MCQ
+  TRUE_FALSE
+  FILL_BLANK
+  CODING
+}
+
+// ── Quiz ──────────────────────────────────────────────────────────────────────
+
+model Quiz {
+  id              String   @id @default(uuid())
+  title           String
+  description     String?
+  courseId        String
+  timeLimitSecs   Int?     // null = no timer
+  randomize       Boolean  @default(false)
+  passingScore    Int      @default(60)  // percentage
+  maxAttempts     Int      @default(0)   // 0 = unlimited
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  course    Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+}
+
+model QuizQuestion {
+  id         String @id @default(uuid())
+  quizId     String
+  questionId String
+  order      Int    @default(0)
+
+  quiz     Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([quizId, questionId])
+}
+
+model QuizAttempt {
+  id          String    @id @default(uuid())
+  userId      String
+  quizId      String
+  answers     Json      @default("[]") // [{ questionId, answer }]
+  score       Float?    // auto-calculated for auto-gradeable questions
+  maxScore    Float?
+  passed      Boolean?
+  timeTaken   Int?      // seconds
+  submittedAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
 }
 
 model Submission {

@@ -1,6 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 import { ServiceError } from "../errors/service.error.js";
-import PDFDocument from "pdfkit";
+import { generateCertificatePDF } from "../utils/pdf.util.js";
 
 // Generates a short unique certificate ID like "CERT-A3F9X2"
 const generateCertificateId = (): string => {
@@ -83,73 +83,23 @@ export const verifyCertificateService = async (certificateId: string) => {
 /**
  * Generates a PDF certificate and returns it as a Buffer.
  */
-export const generateCertificatePDF = async (certificateId: string): Promise<Buffer> => {
+export const generateCertificatePDFById = async (certificateId: string): Promise<Buffer> => {
   const cert = await prisma.certificate.findUnique({
     where: { certificateId },
     include: {
       user: { select: { fullName: true } },
-      course: { select: { title: true, instructor: { select: { fullName: true } } } },
+      course: { select: { title: true, instructorSignature: true, instructor: { select: { fullName: true } } } },
     },
   });
 
   if (!cert) throw new ServiceError("Certificate not found.", 404);
 
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 60 });
-    const chunks: Buffer[] = [];
-
-    doc.on("data", (chunk) => chunks.push(chunk));
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", reject);
-
-    const W = doc.page.width;
-    const H = doc.page.height;
-
-    // Background
-    doc.rect(0, 0, W, H).fill("#0f172a");
-
-    // Border
-    doc.rect(20, 20, W - 40, H - 40).lineWidth(2).stroke("#6366f1");
-
-    // Header
-    doc.fillColor("#6366f1").fontSize(14).font("Helvetica-Bold")
-      .text("LEARNWELL", 0, 50, { align: "center" });
-
-    doc.fillColor("#ffffff").fontSize(36).font("Helvetica-Bold")
-      .text("Certificate of Completion", 0, 80, { align: "center" });
-
-    // Divider
-    doc.moveTo(100, 140).lineTo(W - 100, 140).lineWidth(1).stroke("#6366f1");
-
-    // Body
-    doc.fillColor("#94a3b8").fontSize(14).font("Helvetica")
-      .text("This is to certify that", 0, 165, { align: "center" });
-
-    doc.fillColor("#ffffff").fontSize(28).font("Helvetica-Bold")
-      .text(cert.user.fullName, 0, 195, { align: "center" });
-
-    doc.fillColor("#94a3b8").fontSize(14).font("Helvetica")
-      .text("has successfully completed the course", 0, 240, { align: "center" });
-
-    doc.fillColor("#6366f1").fontSize(22).font("Helvetica-Bold")
-      .text(cert.course.title, 0, 268, { align: "center" });
-
-    doc.fillColor("#94a3b8").fontSize(12).font("Helvetica")
-      .text(`Instructed by ${cert.course.instructor.fullName}`, 0, 308, { align: "center" });
-
-    // Divider
-    doc.moveTo(100, 340).lineTo(W - 100, 340).lineWidth(1).stroke("#6366f1");
-
-    // Footer
-    const issuedDate = new Date(cert.issuedAt).toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric",
-    });
-
-    doc.fillColor("#64748b").fontSize(11).font("Helvetica")
-      .text(`Issued: ${issuedDate}`, 80, 360)
-      .text(`Certificate ID: ${cert.certificateId}`, 80, 378)
-      .text(`Verify at: ${process.env.FRONTEND_URL}/verify/${cert.certificateId}`, 80, 396);
-
-    doc.end();
+  return generateCertificatePDF({
+    studentName: cert.user.fullName,
+    courseTitle: cert.course.title,
+    instructorName: cert.course.instructor.fullName,
+    ...(cert.course.instructorSignature && { instructorSignatureUrl: cert.course.instructorSignature }),
+    certificateId: cert.certificateId,
+    issuedAt: cert.issuedAt,
   });
 };

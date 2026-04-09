@@ -7,7 +7,7 @@ export const createAssignmentSchema = z.object({
   body: z.object({
     title: z.string().trim().min(3, "Title must be at least 3 characters").max(150),
     description: z.string().trim().optional(),
-    type: z.enum(["FILE_SUBMISSION", "MCQ"]).default("FILE_SUBMISSION"),
+    type: z.enum(["FILE_SUBMISSION", "CODE_SUBMISSION", "MCQ"]).default("FILE_SUBMISSION"),
     questions: z.preprocess(
       (val) => {
         if (Array.isArray(val)) return val;
@@ -56,6 +56,8 @@ export const submitAssignmentSchema = z.object({
   }),
   body: z.object({
     textContent: z.string().trim().optional(),
+    codeContent: z.string().optional(),   // for CODE_SUBMISSION type
+    language: z.string().optional(),       // e.g. "javascript", "python"
     mcqAnswers: z.preprocess(
       (val) => {
         if (Array.isArray(val)) return val;

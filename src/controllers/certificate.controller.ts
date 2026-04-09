@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import {
   getMyCertificatesService,
   verifyCertificateService,
-  generateCertificatePDF,
+  generateCertificatePDFById,
 } from "../services/certificate.service.js";
 
 interface ProtectedRequest extends Request {
@@ -35,7 +35,7 @@ export const verifyCertificate = async (req: Request, res: Response, next: NextF
 export const downloadCertificate = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { certificateId } = req.params as { certificateId: string };
-    const pdfBuffer = await generateCertificatePDF(certificateId);
+    const pdfBuffer = await generateCertificatePDFById(certificateId);
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="certificate-${certificateId}.pdf"`);
